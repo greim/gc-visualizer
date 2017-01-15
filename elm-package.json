@@ -1,8 +1,7 @@
 {
     "version": "1.0.0",
-    "summary": "Example using `elm-webpack-loader`.",
-    "repository": "https://github.com/moarwick/elm-webpack-starter.git",
-    "license": "MIT",
+    "summary": "GC Visualizer",
+    "repository": "https://github.com/greim/gc-visualizer",
     "source-directories": [
         "src/elm"
     ],
