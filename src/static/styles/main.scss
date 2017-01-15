@@ -17,7 +17,7 @@ svg {
 }
 
 .pending {
-  opacity: .25;
+  opacity: .1;
 }
 
 line.edge {
@@ -31,6 +31,11 @@ line.edge:hover {
   stroke: hsla(280,100%,90%,0.5);
 }
 
+.pending line.edge {
+  stroke: #fff;
+  opacity: .5;
+}
+
 circle.node {
   fill: #333;
   stroke: hsl(280,100%,60%);
@@ -41,6 +46,10 @@ circle.node {
 
 circle.node:hover {
   stroke: hsl(280,100%,90%);
+}
+
+.pending circle.node {
+  stroke: #fff;
 }
 
 svg.moving circle.node {

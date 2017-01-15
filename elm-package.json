@@ -1,7 +1,8 @@
 {
     "version": "1.0.0",
     "summary": "GC Visualizer",
-    "repository": "https://github.com/greim/gc-visualizer",
+    "repository": "https://github.com/greim/gc-visualizer.git",
+    "license": "NO LICENSE",
     "source-directories": [
         "src/elm"
     ],

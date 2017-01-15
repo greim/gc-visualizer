@@ -2,6 +2,7 @@
   "name": "gc-visualizer",
   "description": "GC visualizer",
   "version": "1.0.0",
+  "license": "NO LICENSE",
   "scripts": {
     "start": "webpack-dev-server --hot --inline --content-base src/",
     "build": "rimraf dist && webpack"
