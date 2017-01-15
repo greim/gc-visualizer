@@ -1,5 +1,52 @@
-$icon-font-path: '~bootstrap-sass/assets/fonts/bootstrap/';
-@import '~bootstrap-sass/assets/stylesheets/bootstrap/_mixins.scss';
-@import '~bootstrap-sass/assets/stylesheets/_bootstrap.scss';
+//$icon-font-path: '~bootstrap-sass/assets/fonts/bootstrap/';
+//@import '~bootstrap-sass/assets/stylesheets/bootstrap/_mixins.scss';
+//@import '~bootstrap-sass/assets/stylesheets/_bootstrap.scss';
 
 // can add Boostrap overrides, additional Sass/CSS below...
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+svg {
+  background: #333;
+  display: block;
+  outline: 1px solid #000;
+  cursor: default;
+}
+
+.pending {
+  opacity: .25;
+}
+
+line.edge {
+  stroke: hsla(280,100%,60%,0.5);
+  stroke-width: 10px;
+  cursor: default;
+  transition: stroke 250ms linear;
+}
+
+line.edge:hover {
+  stroke: hsla(280,100%,90%,0.5);
+}
+
+circle.node {
+  fill: #333;
+  stroke: hsl(280,100%,60%);
+  stroke-width: 10px;
+  cursor: default;
+  transition: stroke 250ms linear;
+}
+
+circle.node:hover {
+  stroke: hsl(280,100%,90%);
+}
+
+svg.moving circle.node {
+  cursor: move;
+}
+
+svg.adding circle.node {
+  cursor: pointer;
+}
