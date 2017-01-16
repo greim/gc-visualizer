@@ -51,7 +51,7 @@ init : (Model, Cmd Msg)
 init =
   let
     nodes = Graph.empty
-    viewport = Viewport 1200 900
+    viewport = Viewport 1200 600
     mode = Add
     pendingEdge = Nothing
     movingNode = Nothing
@@ -244,10 +244,11 @@ pendingLine pEdge graph =
             fromY = toString node.y
             toX = toString pendingEdge.x
             toY = toString pendingEdge.y
+            theArrow = arrow node.x node.y pendingEdge.x pendingEdge.y (onClick NoOp)
           in
             g
               [ class "pending" ]
-              [ line [x1 fromX, y1 fromY, x2 toX, y2 toY, class "edge"] []
+              [ theArrow
               , circle [cx toX, cy toY, r "20", class "node"] []
               ]
         Nothing ->
@@ -272,8 +273,8 @@ nodes mode graph =
   in
     List.map mapFun nodes
 
-toLine : (Int, Int) -> Mode -> Graph Node -> (String, Svg Msg)
-toLine (fromId, toId) mode graph =
+toArrow : (Int, Int) -> Mode -> Graph Node -> (String, Svg Msg)
+toArrow (fromId, toId) mode graph =
   let
     from = Graph.getNode fromId graph
     to = Graph.getNode toId graph
@@ -281,22 +282,11 @@ toLine (fromId, toId) mode graph =
     case (from, to) of
       (Just fromNode, Just toNode) ->
         let
-          fromX = toString fromNode.x
-          fromY = toString fromNode.y
-          toX = toString toNode.x
-          toY = toString toNode.y
+          attr = lineMouseDown mode fromId toId
+          arr = arrow fromNode.x fromNode.y toNode.x toNode.y attr
           key = (toString fromId) ++ "->" ++ (toString toId)
-          theLine = line
-            [ x1 fromX
-            , y1 fromY
-            , x2 toX
-            , y2 toY
-            , lineMouseDown mode fromId toId
-            , class "edge"
-            ]
-            []
         in
-          (key, theLine)
+          (key, arr)
       _ ->
         ("none", g [] [])
 
@@ -304,7 +294,7 @@ edges : Mode -> Graph Node -> List (String, Svg Msg)
 edges mode graph =
   let
     pairs = Graph.toEdgeList graph
-    mapFun = (\pair -> toLine pair mode graph)
+    mapFun = (\pair -> toArrow pair mode graph)
   in
     List.map mapFun pairs
 
@@ -390,3 +380,47 @@ lineMouseDown mode fromId toId =
       on "mousedown" (Json.succeed NoOp)
     Delete ->
       onMouseDown (RemoveEdge fromId toId)
+
+arrow : Int -> Int -> Int -> Int -> Attribute a -> Html a
+arrow x1i y1i x2i y2i attr =
+  let
+    x1s = toString x1i
+    x2s = toString x2i
+    y1s = toString y1i
+    y2s = toString y2i
+    xDiff = toFloat (x2i - x1i)
+    yDiff = toFloat (y2i - y1i)
+    angle = atan2 yDiff xDiff
+    tr1 = translateStr x2i y2i
+    rot = rotateStr angle
+    tr2 = translateStr -22 0
+    arrowHeadTransform = tr1 ++ rot ++ tr2
+  in
+    g
+      [class "arrow", attr]
+      [line [x1 x1s, x2 x2s, y1 y1s, y2 y2s] []
+      , g
+        [class "arrow-head", transform arrowHeadTransform]
+        [ line [x1 "0", y1 "0", x2 "-20", y2 "-15"] []
+        , line [x1 "0", y1 "0", x2 "-20", y2 "15"] []
+        ]
+      ]
+
+translateStr : Int -> Int -> String
+translateStr x y =
+  let
+    xs = toString x
+    ys = toString y
+  in
+    "translate(" ++ xs ++ "," ++ ys ++ ")"
+
+rotateStr : Float -> String
+rotateStr rads =
+  let
+    degStr = toString (rads * radConvert)
+  in
+    "rotate(" ++ degStr ++ ")"
+
+radConvert : Float
+radConvert =
+  360.0 / (2 * pi)

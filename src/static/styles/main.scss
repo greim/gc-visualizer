@@ -20,20 +20,27 @@ svg {
   opacity: .1;
 }
 
-line.edge {
-  stroke: hsla(280,100%,60%,0.5);
+.arrow {
+  opacity: .5;
+}
+
+.arrow line {
+  stroke: hsl(280,100%,60%);
   stroke-width: 10px;
   cursor: default;
   transition: stroke 250ms linear;
 }
 
-line.edge:hover {
-  stroke: hsla(280,100%,90%,0.5);
+.arrow-head line {
+  stroke-width: 5px;
 }
 
-.pending line.edge {
+.arrow:hover line {
+  stroke: hsl(280,100%,90%);
+}
+
+.pending .arrow line {
   stroke: #fff;
-  opacity: .5;
 }
 
 circle.node {
