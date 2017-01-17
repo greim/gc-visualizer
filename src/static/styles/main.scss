@@ -43,7 +43,15 @@ svg {
   stroke: #fff;
 }
 
-circle.node {
+.unmarked.arrow line {
+  stroke: #555;
+}
+
+.marked.arrow line {
+  stroke: #0f0;
+}
+
+.node circle {
   fill: #333;
   stroke: hsl(280,100%,60%);
   stroke-width: 10px;
@@ -51,18 +59,26 @@ circle.node {
   transition: stroke 250ms linear;
 }
 
-circle.node:hover {
+.node:hover circle {
   stroke: hsl(280,100%,90%);
 }
 
-.pending circle.node {
+.pending .node circle {
   stroke: #fff;
 }
 
-svg.moving circle.node {
+.node.unmarked circle {
+  stroke: #555;
+}
+
+.node.marked circle {
+  stroke: #0f0;
+}
+
+svg.moving .node circle {
   cursor: move;
 }
 
-svg.adding circle.node {
+svg.adding .node circle {
   cursor: pointer;
 }

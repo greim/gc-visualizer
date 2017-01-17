@@ -1,4 +1,4 @@
-module Graph exposing (Graph, empty, singleton, addNode, updateNode, getNode, removeNode, toNodeList, toEdgeList, addEdge, removeEdge, findConnected)
+module Graph exposing (Graph, empty, singleton, addNode, updateNode, updateNodeFn, getNode, removeNode, toNodeList, toEdgeList, addEdge, removeEdge, findConnected, map)
 import Dict exposing (Dict)
 import Set exposing (Set)
 import Queue exposing (Queue)
@@ -41,6 +41,15 @@ updateNode id node graph =
       graph
 
 
+updateNodeFn : (a -> a) -> Int -> Graph a -> Graph a
+updateNodeFn update id graph =
+  case getNode id graph of
+    Just node ->
+      updateNode id (update node) graph
+    Nothing ->
+      graph
+
+
 getNode : Int -> Graph a -> Maybe a
 getNode id graph =
   Dict.get id graph.nodes
@@ -61,6 +70,15 @@ removeNode id graph =
 toNodeList : Graph a -> List (Int, a)
 toNodeList graph =
   Dict.toList graph.nodes
+
+
+map : (a -> b) -> Graph a -> Graph b
+map mapFun graph =
+  let
+    newMapFun = (\id a -> mapFun a)
+    newNodes = Dict.map newMapFun graph.nodes
+  in
+    { graph | nodes = newNodes }
 
 
 toPairs : Int -> Set Int -> List (Int, Int)
