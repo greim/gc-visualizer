@@ -10,6 +10,7 @@ import Task
 import Process
 import Time exposing (Time)
 import Set exposing (Set)
+import V
 --import Debug exposing (log)
 
 main =
@@ -317,18 +318,10 @@ pendingLine pEdge graph =
     Just pendingEdge ->
       case Graph.getNode pendingEdge.from graph of
         Just node ->
-          let
-            fromX = toString node.x
-            fromY = toString node.y
-            toX = toString pendingEdge.x
-            toY = toString pendingEdge.y
-            theArrow = arrow node.x node.y pendingEdge.x pendingEdge.y "arrow" (onClick NoOp)
-          in
-            g
-              [ class "pending" ]
-              [ theArrow
-              , g [ class "node" ] [ circle [cx toX, cy toY, r "20"] [] ]
-              ]
+          g []
+            [ V.pendingArrow node.x node.y pendingEdge.x pendingEdge.y
+            , V.pendingNode pendingEdge.x pendingEdge.y
+            ]
         Nothing ->
           g [] []
     Nothing ->
@@ -342,29 +335,16 @@ nodes mode graph =
 createNode : Int -> Mode -> Node -> Svg Msg
 createNode id mode node =
   let
-    xStr = toString node.x
-    yStr = toString node.y
-    c = circle
-      [ cx xStr
-      , cy yStr
-      , r "20"
-      , nodeMouseDown mode (id, node)
+    nodeFn = case node.mark of
+      Unmarked -> V.unmarkedNode node.isRoot
+      Marked -> V.markedNode node.isRoot
+      None -> V.node node.isRoot
+  in
+    nodeFn node.x node.y
+      [ nodeMouseDown mode (id, node)
       , nodeMouseMove mode (id, node)
       , nodeMouseUp mode (id, node)
       ]
-      []
-  in
-    if node.isRoot then
-      g [class (nodeClass node)] [c, circle [cx xStr, cy yStr, r "5", Svg.Attributes.style "pointer-events:none"] []]
-    else
-      g [class (nodeClass node)] [c]
-
-nodeClass : Node -> String
-nodeClass node =
-  case node.mark of
-    Marked -> "marked node"
-    Unmarked -> "unmarked node"
-    None -> "node"
 
 toArrow : (Int, Int) -> Mode -> Graph Node -> (String, Svg Msg)
 toArrow (fromId, toId) mode graph =
@@ -375,17 +355,20 @@ toArrow (fromId, toId) mode graph =
     case (from, to) of
       (Just fromNode, Just toNode) ->
         let
+          arrowFn = case (fromNode.mark, toNode.mark) of
+            (Marked, Marked) -> V.markedArrow
+            (None, None) -> V.arrow
+            _ -> V.unmarkedArrow
           attr = lineMouseDown mode fromId toId
-          arrClass = (edgeClass fromNode toNode)
-          arr = arrow fromNode.x fromNode.y toNode.x toNode.y arrClass attr
+          arr = arrowFn fromNode.x fromNode.y toNode.x toNode.y [attr]
           key = (toString fromId) ++ "->" ++ (toString toId)
         in
           (key, arr)
       _ ->
         ("none", g [] [])
 
-edgeClass : Node -> Node -> String
-edgeClass node1 node2 =
+arrowFn : Node -> Node -> String
+arrowFn node1 node2 =
   case (node1.mark, node2.mark) of
     (Marked, Marked) -> "marked arrow"
     (None, None) -> "arrow"
@@ -499,68 +482,3 @@ lineMouseDown mode fromId toId =
       on "mousedown" (Json.succeed NoOp)
     Delete ->
       onMouseDown (RemoveEdge fromId toId)
-
-arrow : Int -> Int -> Int -> Int -> String -> Attribute a -> Html a
-arrow x1i y1i x2i y2i cls attr =
-  let
-    x1s = toString x1i
-    x2s = toString x2i
-    y1s = toString y1i
-    y2s = toString y2i
-    aHead = arrowHead x1i y1i x2i y2i
-    xDiff = toFloat (x2i - x1i)
-    yDiff = toFloat (y2i - y1i)
-    hyp = sqrt (xDiff * xDiff + yDiff * yDiff)
-    tooShort = hyp < 100
-    angle = atan2 yDiff xDiff
-    tr1 = translateStr x2i y2i
-    rot = rotateStr angle
-    tr2 = translateStr -22 0
-    arrowHeadTransform = tr1 ++ rot ++ tr2
-  in
-    g
-      [ class cls, attr ]
-      [ line [x1 x1s, x2 x2s, y1 y1s, y2 y2s ] []
-      , aHead
-      ]
-
-arrowHead : Int -> Int -> Int -> Int -> Html a
-arrowHead x1i y1i x2i y2i =
-  let
-    xDiff = toFloat (x2i - x1i)
-    yDiff = toFloat (y2i - y1i)
-    hyp = sqrt (xDiff * xDiff + yDiff * yDiff)
-    tooShort = hyp < 50
-    angle = atan2 yDiff xDiff
-    tr1 = translateStr x2i y2i
-    rot = rotateStr angle
-    tr2 = translateStr -22 0
-    arrowHeadTransform = tr1 ++ rot ++ tr2
-  in
-    if tooShort then
-      g [] []
-    else
-      g
-        [ class "arrow-head", transform arrowHeadTransform ]
-        [ line [x1 "0", y1 "0", x2 "-20", y2 "-15"] []
-        , line [x1 "0", y1 "0", x2 "-20", y2 "15"] []
-        ]
-
-translateStr : Int -> Int -> String
-translateStr x y =
-  let
-    xs = toString x
-    ys = toString y
-  in
-    "translate(" ++ xs ++ "," ++ ys ++ ")"
-
-rotateStr : Float -> String
-rotateStr rads =
-  let
-    degStr = toString (rads * radConvert)
-  in
-    "rotate(" ++ degStr ++ ")"
-
-radConvert : Float
-radConvert =
-  360.0 / (2 * pi)

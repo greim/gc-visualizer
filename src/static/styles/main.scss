@@ -16,18 +16,55 @@ svg {
   cursor: default;
 }
 
-.pending {
-  opacity: .1;
+// -------------------
+
+.node circle {
+  fill: #333;
+  stroke: #eee;
+  stroke-width: 7px;
+  transition: stroke 250ms linear;
 }
 
+.pending.node circle {
+  stroke: #555;
+}
+
+.unmarked.node circle {
+  stroke: #555;
+}
+
+.unmarked.node .dot {
+  stroke: #6f6;
+}
+
+.marked.node circle {
+  stroke: #6f6;
+}
+
+.node .dot {
+  visibility: hidden;
+  pointer-events: none;
+  stroke-width: 0;
+  fill: #555;
+}
+
+.root.node .dot {
+  visibility: visible;
+}
+
+.unmarked.node .dot {
+  fill: #6f6;
+}
+
+// -------------------
+
 .arrow {
-  opacity: .5;
+  opacity: .45;
 }
 
 .arrow line {
-  stroke: hsl(280,100%,60%);
-  stroke-width: 10px;
-  cursor: default;
+  stroke: #eee;
+  stroke-width: 7px;
   transition: stroke 250ms linear;
 }
 
@@ -35,12 +72,8 @@ svg {
   stroke-width: 5px;
 }
 
-.arrow:hover line {
-  stroke: hsl(280,100%,90%);
-}
-
-.pending .arrow line {
-  stroke: #fff;
+.pending.arrow line {
+  stroke: #555;
 }
 
 .unmarked.arrow line {
@@ -48,37 +81,15 @@ svg {
 }
 
 .marked.arrow line {
-  stroke: #0f0;
+  stroke: #6f6;
 }
 
-.node circle {
-  fill: #333;
-  stroke: hsl(280,100%,60%);
-  stroke-width: 10px;
-  cursor: default;
-  transition: stroke 250ms linear;
-}
+// -------------------
 
-.node:hover circle {
-  stroke: hsl(280,100%,90%);
-}
-
-.pending .node circle {
-  stroke: #fff;
-}
-
-.node.unmarked circle {
-  stroke: #555;
-}
-
-.node.marked circle {
-  stroke: #0f0;
-}
-
-svg.moving .node circle {
+svg.moving .node {
   cursor: move;
 }
 
-svg.adding .node circle {
+svg.adding .node {
   cursor: pointer;
 }
