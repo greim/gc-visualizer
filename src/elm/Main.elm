@@ -6,12 +6,15 @@ import Svg.Keyed as Keyed
 import Svg.Attributes exposing (..)
 import Graph exposing (Graph)
 import Json.Decode as Json
+import Window
 import Task
 import Process
 import Time exposing (Time)
 import Set exposing (Set)
 import V
---import Debug exposing (log)
+import History exposing (History)
+
+import Debug exposing (log)
 
 main =
   Html.program
@@ -36,11 +39,6 @@ type alias Node =
   , mark : Mark
   }
 
-type alias Viewport =
-  { width : Int
-  , height : Int
-  }
-
 type alias PendingEdge =
   { from : Int
   , x : Int
@@ -48,8 +46,8 @@ type alias PendingEdge =
   }
 
 type alias Model =
-  { nodes : Graph Node
-  , viewport : Viewport
+  { history : History (Graph Node)
+  , viewport : Window.Size
   , mode : Mode
   , pendingEdge : Maybe PendingEdge
   , movingNode : Maybe Int
@@ -58,13 +56,13 @@ type alias Model =
 init : (Model, Cmd Msg)
 init =
   let
-    nodes = Graph.empty
-    viewport = Viewport 1200 600
+    history = History.init Graph.empty
+    viewport = Window.Size 0 0
     mode = Add
     pendingEdge = Nothing
     movingNode = Nothing
-    model = Model nodes viewport mode pendingEdge movingNode
-    cmd = Cmd.none
+    model = Model history viewport mode pendingEdge movingNode
+    cmd = Task.perform Resize Window.size
   in
     (model, cmd)
 
@@ -73,7 +71,8 @@ init =
 -- UPDATE ###########################################################################
 
 type Msg
-  = Create Int Int
+  = StartAdd Int Int
+  | EndAdd Int Int
   | TrackPending Int Int
   | StartPending Int Int Int Bool
   | EndPending Int
@@ -91,158 +90,221 @@ type Msg
   | SweepStart
   | Sweep (List Int)
   | Done
+  | Resize Window.Size
+  | Undo
+  | Redo
   | NoOp
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
-  case msg of
-    Create x y ->
-      let
-        node = Node x y False None
-        (id, nodes) = Graph.addNode node model.nodes
-        noPending = case model.pendingEdge of
-          Just p -> False
-          Nothing -> True
-        pendingEdge = if noPending then Just (PendingEdge id x y) else Nothing
-        finalNodes = if noPending then nodes else addPending id model.pendingEdge nodes
-        newModel = { model | nodes = finalNodes, pendingEdge = pendingEdge }
-      in
-        (newModel, Cmd.none)
-    TrackPending x y ->
-      case model.pendingEdge of
-        Just pendingEdge ->
-          let
-            newPendingEdge = { pendingEdge | x = x, y = y }
-            newModel = { model | pendingEdge = Just newPendingEdge }
-          in
-            (newModel, Cmd.none)
-        Nothing ->
-          (model, Cmd.none)
-    StartPending from x y isMeta ->
-      case Graph.getNode from model.nodes of
-        Just node ->
-          let
-            newNode = if isMeta then { node | isRoot = True } else node
-            nodes = Graph.updateNode from newNode model.nodes
-            pendingEdge = Just (PendingEdge from x y)
-            newModel = { model | pendingEdge = pendingEdge, nodes = nodes }
-          in
-            (newModel, Cmd.none)
-        Nothing ->
-          (model, Cmd.none)
-    EndPending to ->
-      case model.pendingEdge of
-        Just pendingEdge ->
-          if pendingEdge.from /= to then
+  let
+    modelNodes = History.peek model.history
+  in
+    case msg of
+
+      StartAdd x y ->
+        let
+          node = Node x y False None
+          (id, newNodes) = Graph.addNode node modelNodes
+          pendingEdge = Just (PendingEdge id x y)
+          newHistory = History.push "start-add" newNodes model.history
+          newModel = { model | history = newHistory, pendingEdge = pendingEdge }
+        in
+          (newModel, Cmd.none)
+
+      EndAdd x y ->
+        let
+          node = Node x y False None
+          (id, intermediateNodes) = Graph.addNode node modelNodes
+          intermediateHistory = History.push "end-add-node" intermediateNodes model.history
+          finalNodes = addPending id model.pendingEdge intermediateNodes
+          finalHistory = History.push "end-add-edge" finalNodes intermediateHistory
+          newModel = { model | history = finalHistory, pendingEdge = Nothing }
+        in
+          (newModel, Cmd.none)
+
+      TrackPending x y ->
+        case model.pendingEdge of
+          Just pendingEdge ->
             let
-              nodes = Graph.addEdge pendingEdge.from to model.nodes
-              newPendingEdge = Nothing
-              newModel = { model | nodes = nodes, pendingEdge = newPendingEdge }
+              newPendingEdge = { pendingEdge | x = x, y = y }
+              newModel = { model | pendingEdge = Just newPendingEdge }
             in
               (newModel, Cmd.none)
-          else
+          Nothing ->
             (model, Cmd.none)
-        Nothing ->
-          (model, Cmd.none)
-    ClearPending ->
-      ({ model | pendingEdge = Nothing }, Cmd.none)
-    ChangeMode mode ->
-      ({ model | mode = mode }, Cmd.none)
-    StartMoving nodeId x y ->
-      let
-        movingNode = Just nodeId
-        newModel = { model | movingNode = movingNode }
-      in
-        (newModel, Cmd.none)
-    TrackMoving x y ->
-      case model.movingNode of
-        Just nodeId ->
-          case Graph.getNode nodeId model.nodes of
-            Just node ->
+
+      StartPending from x y isMeta ->
+        case Graph.getNode from modelNodes of
+          Just node ->
+            let
+              newNode = if isMeta then { node | isRoot = True } else node
+              newNodes = Graph.updateNode from newNode modelNodes
+              pendingEdge = Just (PendingEdge from x y)
+              newHistory = History.push "start-pending" newNodes model.history
+              newModel = { model | pendingEdge = pendingEdge, history = newHistory }
+            in
+              (newModel, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+      EndPending to ->
+        case model.pendingEdge of
+          Just pendingEdge ->
+            if pendingEdge.from /= to then
               let
-                newNode = { node | x = x, y = y }
-                newNodes = Graph.updateNode nodeId newNode model.nodes
-                newModel = { model | nodes = newNodes }
+                newNodes = Graph.addEdge pendingEdge.from to modelNodes
+                newHistory = History.push "end-pending" newNodes model.history
+                newModel = { model | pendingEdge = Nothing, history = newHistory }
               in
                 (newModel, Cmd.none)
-            Nothing ->
+            else
               (model, Cmd.none)
-        Nothing ->
-          (model, Cmd.none)
-    EndMoving ->
-      let
-        movingNode = Nothing
-        newModel = { model | movingNode = movingNode }
-      in
-        (newModel, Cmd.none)
-    RemoveNode nodeId ->
-      let
-        nodes = Graph.removeNode nodeId model.nodes
-        newModel = { model | nodes = nodes }
-      in
-        (newModel, Cmd.none)
-    RemoveEdge fromId toId ->
-      let
-        nodes = Graph.removeEdge fromId toId model.nodes
-        newModel = { model | nodes = nodes }
-      in
-        (newModel, Cmd.none)
-    Clear ->
-      let
-        newModel = { model | nodes = Graph.empty }
-      in
-        (newModel, Cmd.none)
-    Unmark ->
-      let
-        nodes = Graph.map (\node -> { node | mark = Unmarked }) model.nodes
-        newModel = { model | nodes = nodes }
-      in
-        (newModel, Cmd.none)
-    MarkStart ->
-      let
-        ids = Graph.toNodeList model.nodes
-          |> List.filter (\(id, node) -> node.isRoot)
-          |> List.map (\(id, node) -> Graph.findConnected id model.nodes)
-          |> List.map (\set -> Set.toList set)
-          |> List.concat
-      in
-        (model, Task.perform Mark (Task.succeed ids))
-    Mark nodes ->
-      case nodes of
-        id :: rest ->
-          let
-            updateFn = (\node -> { node | mark = Marked })
-            nodes = model.nodes |> Graph.updateNodeFn updateFn id
-            newModel = { model | nodes = nodes }
-          in
-            (newModel, delay 20 (Mark rest))
-        [] ->
-          (model, Cmd.none)
-    SweepStart ->
-      let
-        ids = Graph.toNodeList model.nodes
-          |> List.filter (\(id, node) -> node.mark /= Marked)
-          |> List.map (\(id, node) -> id)
-      in
-        (model, Task.perform Sweep (Task.succeed ids))
-    Sweep nodes ->
-      case nodes of
-        id :: rest ->
-          let
-            newNodes = Graph.removeNode id model.nodes
-            newModel = { model | nodes = newNodes }
-          in
-            (newModel, delay 20 (Sweep rest))
-        [] ->
-          (model, Cmd.none)
-    Done ->
-      let
-        nodes = Graph.map (\node -> { node | mark = None }) model.nodes
-        newModel = { model | nodes = nodes }
-      in
-        (newModel, Cmd.none)
-    NoOp ->
-      (model, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+      ClearPending ->
+        ({ model | pendingEdge = Nothing }, Cmd.none)
+
+      ChangeMode mode ->
+        ({ model | mode = mode }, Cmd.none)
+
+      StartMoving nodeId x y ->
+        let
+          movingNode = Just nodeId
+          newModel = { model | movingNode = movingNode }
+        in
+          (newModel, Cmd.none)
+
+      TrackMoving x y ->
+        case model.movingNode of
+          Just nodeId ->
+            case Graph.getNode nodeId modelNodes of
+              Just node ->
+                let
+                  newNode = { node | x = x, y = y }
+                  newNodes = Graph.updateNode nodeId newNode modelNodes
+                  newHistory = History.push "track-moving" newNodes model.history
+                  newModel = { model | history = newHistory }
+                in
+                  (newModel, Cmd.none)
+              Nothing ->
+                (model, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+      EndMoving ->
+        let
+          movingNode = Nothing
+          newModel = { model | movingNode = movingNode }
+        in
+          (newModel, Cmd.none)
+
+      RemoveNode nodeId ->
+        let
+          newNodes = Graph.removeNode nodeId modelNodes
+          newHistory = History.push "remove-node" newNodes model.history
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      RemoveEdge fromId toId ->
+        let
+          newNodes = Graph.removeEdge fromId toId modelNodes
+          newHistory = History.push "remove-edge" newNodes model.history
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      Clear ->
+        let
+          --newHistory = History.push "clear" Graph.empty model.history
+          newHistory = History.init Graph.empty
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      Unmark ->
+        let
+          newNodes = Graph.map (\node -> { node | mark = Unmarked }) modelNodes
+          newHistory = History.push "unmark" newNodes model.history
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      MarkStart ->
+        let
+          ids = Graph.toNodeList modelNodes
+            |> List.filter (\(id, node) -> node.isRoot)
+            |> List.map (\(id, node) -> Graph.findConnected id modelNodes)
+            |> List.map (\set -> Set.toList set)
+            |> List.concat
+        in
+          (model, Task.perform Mark (Task.succeed ids))
+
+      Mark nodes ->
+        case nodes of
+          id :: rest ->
+            let
+              updateFn = (\node -> { node | mark = Marked })
+              newNodes = modelNodes |> Graph.updateNodeFn updateFn id
+              newHistory = History.push "mark" newNodes model.history
+              newModel = { model | history = newHistory }
+            in
+              (newModel, delay 20 (Mark rest))
+          [] ->
+            (model, Cmd.none)
+
+      SweepStart ->
+        let
+          ids = Graph.toNodeList modelNodes
+            |> List.filter (\(id, node) -> node.mark /= Marked)
+            |> List.map (\(id, node) -> id)
+        in
+          (model, Task.perform Sweep (Task.succeed ids))
+
+      Sweep nodes ->
+        case nodes of
+          id :: rest ->
+            let
+              newNodes = Graph.removeNode id modelNodes
+              newHistory = History.push "sweep" newNodes model.history
+              newModel = { model | history = newHistory }
+            in
+              (newModel, delay 20 (Sweep rest))
+          [] ->
+            (model, Cmd.none)
+
+      Done ->
+        let
+          newNodes = Graph.map (\node -> { node | mark = None }) modelNodes
+          newHistory = History.push "start-pending" newNodes model.history
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      Resize viewport ->
+        let
+          newModel = { model | viewport = viewport }
+        in
+          (newModel, Cmd.none)
+
+      Undo ->
+        let
+          newHistory = History.pop model.history
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      Redo ->
+        let
+          newHistory = History.unpop model.history
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      NoOp ->
+        (model, Cmd.none)
 
 addPending : Int -> Maybe PendingEdge -> Graph Node -> Graph Node
 addPending to pendingEdge graph =
@@ -264,7 +326,7 @@ delay time msg =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Sub.none
+  Window.resizes Resize
 
 
 
@@ -273,12 +335,13 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
   let
+    modelNodes = History.peek model.history
     widthStr = toString model.viewport.width
     heightStr = toString model.viewport.height
     box = "0 0 " ++ widthStr ++ " " ++ heightStr
     widthPx = widthStr ++ "px"
     heightPx = heightStr ++ "px"
-    pendingEdgeLine = pendingLine model.pendingEdge model.nodes
+    pending = pendingInfo model.pendingEdge modelNodes
     svgClass = case model.mode of
       Add -> "adding"
       Move -> "moving"
@@ -294,45 +357,88 @@ view model =
         , backdropMouseUp model.mode model.pendingEdge
         , class svgClass
         ]
-        [ pendingEdgeLine
-        , Keyed.node "g" [] (edges model.mode model.nodes)
-        , Keyed.node "g" [] (nodes model.mode model.nodes)
+        [ pendingArrow pending
+        , pendingNode pending
+        , Keyed.node "g" [] (edges model.mode modelNodes)
+        , Keyed.node "g" [] (nodes model.mode modelNodes)
         ]
-      , button [onClick Clear] [text "Clear"]
-      , button [onClick Unmark] [text "Prep"]
-      , button [onClick MarkStart] [text "Mark"]
-      , button [onClick SweepStart] [text "Sweep"]
-      , button [onClick Done] [text "Done"]
-      , button [onClick (ChangeMode Add), disabled (model.mode == Add)] [text "Add"]
-      , button [onClick (ChangeMode Move), disabled (model.mode == Move)] [text "Move"]
-      , button [onClick (ChangeMode Delete), disabled (model.mode == Delete)] [text "Delete"]
-      , br [] []
-      , text ("nodes: " ++ (toString (List.length (Graph.toNodeList model.nodes))))
-      , br [] []
-      , text ("edges: " ++ (toString (List.length (Graph.toEdgeList model.nodes))))
+      , div
+        [ id "modes"
+        ]
+        [ button [onClick (ChangeMode Add), disabled (model.mode == Add)] [text "Add"]
+        , button [onClick (ChangeMode Move), disabled (model.mode == Move)] [text "Move"]
+        , button [onClick (ChangeMode Delete), disabled (model.mode == Delete)] [text "Delete"]
+        ]
+      , div
+        [ id "actions"
+        ]
+        [ button [onClick Undo, disabled (not <| History.hasItems model.history)] [text "Undo"]
+        , button [onClick Redo, disabled (not <| History.hasFuture model.history)] [text "Redo"]
+        , button [onClick Unmark] [text "Start GC"]
+        , button [onClick MarkStart] [text "Mark"]
+        , button [onClick SweepStart] [text "Sweep"]
+        , button [onClick Done] [text "End GC"]
+        , button [onClick Clear] [text "Clear"]
+        ]
+      , div
+        [ id "info"
+        ]
+        [ text ("nodes: " ++ (toString (List.length (Graph.toNodeList modelNodes))))
+        , br [] []
+        , text ("edges: " ++ (toString (List.length (Graph.toEdgeList modelNodes))))
+        , br [] []
+        , text ("history size: " ++ (toString (History.length model.history)))
+        , br [] []
+        , text ("history future: " ++ (toString (History.futureLength model.history)))
+        ]
       ]
 
-pendingLine : Maybe PendingEdge -> Graph Node -> Svg Msg
-pendingLine pEdge graph =
-  case pEdge of
+pendingInfo : Maybe PendingEdge -> Graph Node -> Maybe (PendingEdge, Node)
+pendingInfo maybePendingEdge graph =
+  case maybePendingEdge of
     Just pendingEdge ->
       case Graph.getNode pendingEdge.from graph of
-        Just node ->
-          g []
-            [ V.pendingArrow node.x node.y pendingEdge.x pendingEdge.y
-            , V.pendingNode pendingEdge.x pendingEdge.y
-            ]
-        Nothing ->
-          g [] []
+        Just node -> Just (pendingEdge, node)
+        Nothing -> Nothing
+    Nothing -> Nothing
+
+pendingArrow : Maybe (PendingEdge, Node) -> Svg Msg
+pendingArrow pendingInfo =
+  case pendingInfo of
+    Just (pendingEdge, node) ->
+      let
+        x1 = node.x
+        y1 = node.y
+        x2 = pendingEdge.x
+        y2 = pendingEdge.y
+      in
+        V.pendingArrow x1 y1 x2 y2
+    Nothing ->
+      g [] []
+
+pendingNode : Maybe (PendingEdge, Node) -> Svg Msg
+pendingNode pendingInfo =
+  case pendingInfo of
+    Just (pendingEdge, node) ->
+      let
+        x = pendingEdge.x
+        y = pendingEdge.y
+      in
+        V.pendingNode x y
     Nothing ->
       g [] []
 
 nodes : Mode -> Graph Node -> List (String, Svg Msg)
 nodes mode graph =
   Graph.toNodeList graph
-    |> List.map (\(id, node) -> (toString id, createNode id mode node))
+    |> List.map (\(id, node) -> createNode id mode node)
 
-createNode : Int -> Mode -> Node -> Svg Msg
+edges : Mode -> Graph Node -> List (String, Svg Msg)
+edges mode graph =
+  Graph.toEdgeList graph
+    |> List.map (\pair -> createArrow pair mode graph)
+
+createNode : Int -> Mode -> Node -> (String, Svg Msg)
 createNode id mode node =
   let
     nodeFn = case node.mark of
@@ -340,14 +446,16 @@ createNode id mode node =
       Marked -> V.markedNode node.isRoot
       None -> V.node node.isRoot
   in
-    nodeFn node.x node.y
-      [ nodeMouseDown mode (id, node)
-      , nodeMouseMove mode (id, node)
-      , nodeMouseUp mode (id, node)
-      ]
+    ( toString id
+    , nodeFn node.x node.y
+        [ nodeMouseDown mode (id, node)
+        , nodeMouseMove mode (id, node)
+        , nodeMouseUp mode (id, node)
+        ]
+    )
 
-toArrow : (Int, Int) -> Mode -> Graph Node -> (String, Svg Msg)
-toArrow (fromId, toId) mode graph =
+createArrow : (Int, Int) -> Mode -> Graph Node -> (String, Svg Msg)
+createArrow (fromId, toId) mode graph =
   let
     from = Graph.getNode fromId graph
     to = Graph.getNode toId graph
@@ -374,14 +482,6 @@ arrowFn node1 node2 =
     (None, None) -> "arrow"
     _ -> "unmarked arrow"
 
-edges : Mode -> Graph Node -> List (String, Svg Msg)
-edges mode graph =
-  let
-    pairs = Graph.toEdgeList graph
-    mapFun = (\pair -> toArrow pair mode graph)
-  in
-    List.map mapFun pairs
-
 getXYExtra : (Int -> Int -> Int -> Bool -> Bool -> Msg) -> Json.Decoder Msg
 getXYExtra toVal =
   let
@@ -405,7 +505,7 @@ backdropMouseDown : Mode -> Attribute Msg
 backdropMouseDown mode =
   case mode of
     Add ->
-      on "mousedown" (getXY (\x y -> Create x y))
+      on "mousedown" (getXY (\x y -> StartAdd x y))
     Move ->
       on "mousedown" (Json.succeed NoOp)
     Delete ->
@@ -429,7 +529,7 @@ backdropMouseUp : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseUp mode pEdge =
   case mode of
     Add ->
-      on "mouseup" (getXY (\x y -> Create x y))
+      on "mouseup" (getXY (\x y -> EndAdd x y))
     Move ->
       on "mouseup" (Json.succeed EndMoving)
     Delete ->
