@@ -51,6 +51,9 @@ type alias Model =
   , mode : Mode
   , pendingEdge : Maybe PendingEdge
   , movingNode : Maybe Int
+  , showCode : Bool
+  , codeSize : Int
+  , code : String
   }
 
 init : (Model, Cmd Msg)
@@ -61,7 +64,10 @@ init =
     mode = Add
     pendingEdge = Nothing
     movingNode = Nothing
-    model = Model history viewport mode pendingEdge movingNode
+    showCode = True
+    codeSize = 20
+    code = "// type code here\n// foo bar"
+    model = Model history viewport mode pendingEdge movingNode showCode codeSize code
     cmd = Task.perform Resize Window.size
   in
     (model, cmd)
@@ -93,6 +99,9 @@ type Msg
   | Resize Window.Size
   | Undo
   | Redo
+  | ToggleShowCode
+  | ChangeCodeSize Int
+  | ChangeCode String
   | NoOp
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -233,7 +242,7 @@ update msg model =
         let
           --newHistory = History.push "clear" Graph.empty model.history
           newHistory = History.init Graph.empty
-          newModel = { model | history = newHistory }
+          newModel = { model | history = newHistory, code = "" }
         in
           (newModel, Cmd.none)
 
@@ -316,6 +325,25 @@ update msg model =
         in
           (newModel, Cmd.none)
 
+      ToggleShowCode ->
+        let
+          newShowCode = not model.showCode
+          newModel = { model | showCode = newShowCode }
+        in
+          (newModel, Cmd.none)
+
+      ChangeCodeSize px ->
+        let
+          newModel = { model | codeSize = px }
+        in
+          (newModel, Cmd.none)
+
+      ChangeCode code ->
+        let
+          newModel = { model | code = code }
+        in
+          (newModel, Cmd.none)
+
       NoOp ->
         (model, Cmd.none)
 
@@ -374,6 +402,15 @@ view model =
         , pendingNode pending
         , Keyed.node "g" [] (edges model.mode modelNodes)
         , Keyed.node "g" [] (nodes model.mode modelNodes)
+        ]
+      , div
+        [ id "code"
+        , class (if model.showCode then "shown" else "not-shown")
+        ]
+        [ button [class "code-toggle", onClick ToggleShowCode] [icon (if model.showCode then "chevron-left" else "chevron-right")]
+        , button [onClick (ChangeCodeSize (model.codeSize + 2)), class "code-size", id "code-size-bigger"] [icon "plus-circle"]
+        , button [onClick (ChangeCodeSize (model.codeSize - 2)), class "code-size", id "code-size-smaller"] [icon "minus-circle"]
+        , Html.textarea [onInput ChangeCode, Html.Attributes.value model.code, Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
         ]
       , div
         [ id "modes"
