@@ -64,9 +64,9 @@ init =
     mode = Add
     pendingEdge = Nothing
     movingNode = Nothing
-    showCode = True
+    showCode = False
     codeSize = 20
-    code = "// type code here\n// foo bar"
+    code = "// hello\n"
     model = Model history viewport mode pendingEdge movingNode showCode codeSize code
     cmd = Task.perform Resize Window.size
   in

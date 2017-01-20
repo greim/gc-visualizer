@@ -103,11 +103,13 @@ svg {
   background: rgba(215,215,215,0.95);
   top: 15px;
   bottom: 15px;
-  transition: left 500ms ease-in-out;
+  transition: left 500ms ease-in-out, opacity 500ms ease-in-out;
   &.shown {
+    opacity: 1;
     left: 0vw;
   }
   &.not-shown {
+    opacity: .3;
     left: -31vw;
   }
   textarea {
@@ -140,7 +142,8 @@ svg {
     text-align: center;
     font-size: 16px;
     color: #ccc;
-    opacity: 0;
+    opacity: .5;
+    display: none;
     background: transparent;
     margin: 0;
     &:hover {
@@ -148,7 +151,7 @@ svg {
     }
   }
   &.shown .code-size {
-    opacity: .5;
+    display: block;
   }
   #code-size-bigger {
     top: 48px;
