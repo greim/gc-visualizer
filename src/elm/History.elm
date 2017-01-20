@@ -1,5 +1,6 @@
-module History exposing (History, push, pop, unpop, peek, init, hasItems, length, hasFuture, futureLength)
+module History exposing (History, push, pop, unpop, peek, init, hasItems, length, hasFuture, futureLength, break)
 
+import Set exposing (Set)
 --import Debug exposing (log)
 
 type alias History a =
@@ -14,26 +15,29 @@ init item =
 
 push : String -> a -> History a -> History a
 push key item history =
+  --let k = log "key" key in
   case history.items of
     (prevKey, prevItem) :: rest ->
-      case (prevKey == key, prevItem == item) of
-        (False, False) ->
-          let
-            newItems = (key, item) :: history.items
-          in
-            { history | items = newItems, future = [] }
-        (True, False) ->
-          let
-            newItems = (key, item) :: rest
-          in
-            { history | items = newItems, future = [] }
-        _ ->
-          history
+      let
+        newItems = case Set.member (prevKey, key) collapsibles of
+          True -> (key, item) :: rest
+          False -> (key, item) :: history.items
+      in
+        { history | items = newItems, future = [] }
     [] ->
       let
         newItems = (key, item) :: history.items
       in
         { history | items = newItems, future = [] }
+
+break : History a -> History a
+break history =
+  case history.items of
+    (prevKey, prevItem) :: rest ->
+      let newItems = ("", prevItem) :: rest
+      in { history | items = newItems }
+    [] ->
+      history
 
 pop : History a -> History a
 pop history =
@@ -77,3 +81,15 @@ hasFuture history =
 futureLength : History a -> Int
 futureLength history =
   List.length history.future
+
+collapsibles : Set (String, String)
+collapsibles =
+  Set.fromList
+    [ ("start-nothing", "end-nothing")
+    , ("start-nothing", "end-node")
+    , ("start-node", "end-node")
+    , ("start-node", "end-nothing")
+    , ("move", "move")
+    , ("mark", "mark")
+    , ("sweep", "sweep")
+    ]

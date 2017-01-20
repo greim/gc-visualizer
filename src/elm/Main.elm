@@ -71,11 +71,11 @@ init =
 -- UPDATE ###########################################################################
 
 type Msg
-  = StartAdd Int Int
-  | EndAdd Int Int
-  | TrackPending Int Int
-  | StartPending Int Int Int Bool
-  | EndPending Int
+  = StartOnNothing Int Int
+  | EndOnNothing Int Int
+  | StartOnNode Int Int Int Bool
+  | EndOnNode Int
+  | TrackStretch Int Int
   | ClearPending
   | ChangeMode Mode
   | StartMoving Int Int Int
@@ -102,28 +102,69 @@ update msg model =
   in
     case msg of
 
-      StartAdd x y ->
+      StartOnNothing x y ->
         let
           node = Node x y False None
           (id, newNodes) = Graph.addNode node modelNodes
           pendingEdge = Just (PendingEdge id x y)
-          newHistory = History.push "start-add" newNodes model.history
+          newHistory = History.push "start-nothing" newNodes model.history
           newModel = { model | history = newHistory, pendingEdge = pendingEdge }
         in
           (newModel, Cmd.none)
 
-      EndAdd x y ->
+      EndOnNothing x y ->
         let
           node = Node x y False None
           (id, intermediateNodes) = Graph.addNode node modelNodes
-          intermediateHistory = History.push "end-add-node" intermediateNodes model.history
           finalNodes = addPending id model.pendingEdge intermediateNodes
-          finalHistory = History.push "end-add-edge" finalNodes intermediateHistory
-          newModel = { model | history = finalHistory, pendingEdge = Nothing }
+          newHistory = case model.pendingEdge of
+            Just pendingEdge ->
+              History.push "end-nothing" finalNodes model.history
+            Nothing ->
+              model.history
+          newModel = { model | history = newHistory, pendingEdge = Nothing }
         in
           (newModel, Cmd.none)
 
-      TrackPending x y ->
+      StartOnNode from x y isMeta ->
+        case Graph.getNode from modelNodes of
+          Just node ->
+            case isMeta of
+              True ->
+                let
+                  newNode = { node | isRoot = True }
+                  newNodes = Graph.updateNode from newNode modelNodes
+                  pendingEdge = Just (PendingEdge from x y)
+                  newHistory = History.push "start-node" newNodes model.history
+                  newModel = { model | pendingEdge = pendingEdge, history = newHistory }
+                in
+                  (newModel, Cmd.none)
+              False ->
+                let
+                  pendingEdge = Just (PendingEdge from x y)
+                  newHistory = History.break model.history
+                  newModel = { model | pendingEdge = pendingEdge, history = newHistory }
+                in
+                  (newModel, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+      EndOnNode to ->
+        case model.pendingEdge of
+          Just pendingEdge ->
+            if pendingEdge.from /= to then
+              let
+                newNodes = Graph.addEdge pendingEdge.from to modelNodes
+                newHistory = History.push "end-node" newNodes model.history
+                newModel = { model | pendingEdge = Nothing, history = newHistory }
+              in
+                (newModel, Cmd.none)
+            else
+              (model, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+      TrackStretch x y ->
         case model.pendingEdge of
           Just pendingEdge ->
             let
@@ -131,35 +172,6 @@ update msg model =
               newModel = { model | pendingEdge = Just newPendingEdge }
             in
               (newModel, Cmd.none)
-          Nothing ->
-            (model, Cmd.none)
-
-      StartPending from x y isMeta ->
-        case Graph.getNode from modelNodes of
-          Just node ->
-            let
-              newNode = if isMeta then { node | isRoot = True } else node
-              newNodes = Graph.updateNode from newNode modelNodes
-              pendingEdge = Just (PendingEdge from x y)
-              newHistory = History.push "start-pending" newNodes model.history
-              newModel = { model | pendingEdge = pendingEdge, history = newHistory }
-            in
-              (newModel, Cmd.none)
-          Nothing ->
-            (model, Cmd.none)
-
-      EndPending to ->
-        case model.pendingEdge of
-          Just pendingEdge ->
-            if pendingEdge.from /= to then
-              let
-                newNodes = Graph.addEdge pendingEdge.from to modelNodes
-                newHistory = History.push "end-pending" newNodes model.history
-                newModel = { model | pendingEdge = Nothing, history = newHistory }
-              in
-                (newModel, Cmd.none)
-            else
-              (model, Cmd.none)
           Nothing ->
             (model, Cmd.none)
 
@@ -172,7 +184,8 @@ update msg model =
       StartMoving nodeId x y ->
         let
           movingNode = Just nodeId
-          newModel = { model | movingNode = movingNode }
+          newHistory = History.break model.history
+          newModel = { model | movingNode = movingNode, history = newHistory }
         in
           (newModel, Cmd.none)
 
@@ -184,7 +197,7 @@ update msg model =
                 let
                   newNode = { node | x = x, y = y }
                   newNodes = Graph.updateNode nodeId newNode modelNodes
-                  newHistory = History.push "track-moving" newNodes model.history
+                  newHistory = History.push "move" newNodes model.history
                   newModel = { model | history = newHistory }
                 in
                   (newModel, Cmd.none)
@@ -278,7 +291,7 @@ update msg model =
       Done ->
         let
           newNodes = Graph.map (\node -> { node | mark = None }) modelNodes
-          newHistory = History.push "start-pending" newNodes model.history
+          newHistory = History.push "done" newNodes model.history
           newModel = { model | history = newHistory }
         in
           (newModel, Cmd.none)
@@ -383,11 +396,11 @@ view model =
       , div
         [ id "info"
         ]
-        [ text ("nodes: " ++ (toString (List.length (Graph.toNodeList modelNodes))))
+        [ text ("node count: " ++ (toString (List.length (Graph.toNodeList modelNodes))))
         , br [] []
-        , text ("edges: " ++ (toString (List.length (Graph.toEdgeList modelNodes))))
+        , text ("edge count: " ++ (toString (List.length (Graph.toEdgeList modelNodes))))
         , br [] []
-        , text ("history size: " ++ (toString (History.length model.history)))
+        , text ("history past: " ++ (toString (History.length model.history)))
         , br [] []
         , text ("history future: " ++ (toString (History.futureLength model.history)))
         ]
@@ -505,7 +518,7 @@ backdropMouseDown : Mode -> Attribute Msg
 backdropMouseDown mode =
   case mode of
     Add ->
-      on "mousedown" (getXY (\x y -> StartAdd x y))
+      on "mousedown" (getXY (\x y -> StartOnNothing x y))
     Move ->
       on "mousedown" (Json.succeed NoOp)
     Delete ->
@@ -517,7 +530,7 @@ backdropMouseMove mode pEdge =
     Add ->
       case pEdge of
         Just pendingEdge ->
-          on "mousemove" (getXYExtra (\x y which isShift isMeta -> if which == 1 then TrackPending x y else ClearPending))
+          on "mousemove" (getXYExtra (\x y which isShift isMeta -> if which == 1 then TrackStretch x y else ClearPending))
         Nothing ->
           on "mousemove" (Json.succeed NoOp)
     Move ->
@@ -529,7 +542,7 @@ backdropMouseUp : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseUp mode pEdge =
   case mode of
     Add ->
-      on "mouseup" (getXY (\x y -> EndAdd x y))
+      on "mouseup" (getXY (\x y -> EndOnNothing x y))
     Move ->
       on "mouseup" (Json.succeed EndMoving)
     Delete ->
@@ -541,7 +554,7 @@ nodeMouseDown mode (nodeId, node) =
     Add ->
       let
         opts = Options True True
-        fun = (\x y which isShift isMeta -> StartPending nodeId x y isMeta)
+        fun = (\x y which isShift isMeta -> StartOnNode nodeId x y isMeta)
       in
         onWithOptions "mousedown" opts (getXYExtra fun)
     Move ->
@@ -557,7 +570,7 @@ nodeMouseMove : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseMove mode (nodeId, node) =
   case mode of
     Add ->
-      onWithOptions "mousemove" (Options True True) (Json.succeed (TrackPending node.x node.y))
+      onWithOptions "mousemove" (Options True True) (Json.succeed (TrackStretch node.x node.y))
     Move ->
       on "mousemove" (Json.succeed NoOp)
     Delete ->
@@ -567,7 +580,7 @@ nodeMouseUp : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseUp mode (nodeId, node) =
   case mode of
     Add ->
-      onWithOptions "mouseup" (Options True True) (Json.succeed (EndPending nodeId))
+      onWithOptions "mouseup" (Options True True) (Json.succeed (EndOnNode nodeId))
     Move ->
       on "mouseup" (Json.succeed NoOp)
     Delete ->
