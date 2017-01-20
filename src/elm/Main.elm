@@ -1,4 +1,4 @@
-import Html exposing (Html, div, button, br)
+import Html exposing (Html, div, button, br, span)
 import Html.Attributes exposing (disabled)
 import Html.Events exposing (..)
 import Svg exposing (..)
@@ -378,19 +378,21 @@ view model =
       , div
         [ id "modes"
         ]
-        [ button [onClick (ChangeMode Add), disabled (model.mode == Add)] [text "Add"]
-        , button [onClick (ChangeMode Move), disabled (model.mode == Move)] [text "Move"]
-        , button [onClick (ChangeMode Delete), disabled (model.mode == Delete)] [text "Delete"]
+        [ button [onClick (ChangeMode Add), disabled (model.mode == Add)] [icon "mouse-pointer"]
+        , button [onClick (ChangeMode Move), disabled (model.mode == Move)] [icon "arrows"]
+        , button [onClick (ChangeMode Delete), disabled (model.mode == Delete)] [icon "remove"]
+        , span [class "undo-redo"]
+          [ button [onClick Undo, disabled (not <| History.hasItems model.history)] [icon "undo"]
+          , button [onClick Redo, disabled (not <| History.hasFuture model.history)] [icon "rotate-right"]
+          ]
         ]
       , div
         [ id "actions"
         ]
-        [ button [onClick Undo, disabled (not <| History.hasItems model.history)] [text "Undo"]
-        , button [onClick Redo, disabled (not <| History.hasFuture model.history)] [text "Redo"]
-        , button [onClick Unmark] [text "Start GC"]
+        [ button [onClick Unmark] [text "Start"]
         , button [onClick MarkStart] [text "Mark"]
         , button [onClick SweepStart] [text "Sweep"]
-        , button [onClick Done] [text "End GC"]
+        , button [onClick Done] [text "Done"]
         , button [onClick Clear] [text "Clear"]
         ]
       , div
@@ -405,6 +407,10 @@ view model =
         , text ("history future: " ++ (toString (History.futureLength model.history)))
         ]
       ]
+
+icon : String -> Html Msg
+icon ico =
+  Html.i [class ("fa fa-" ++ ico)] []
 
 pendingInfo : Maybe PendingEdge -> Graph Node -> Maybe (PendingEdge, Node)
 pendingInfo maybePendingEdge graph =

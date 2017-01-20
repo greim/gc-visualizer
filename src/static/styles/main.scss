@@ -1,6 +1,7 @@
 //$icon-font-path: '~bootstrap-sass/assets/fonts/bootstrap/';
 //@import '~bootstrap-sass/assets/stylesheets/bootstrap/_mixins.scss';
 //@import '~bootstrap-sass/assets/stylesheets/_bootstrap.scss';
+//@import '../font-awesome-4.7.0/scss/font-awesome.scss';
 
 // can add Boostrap overrides, additional Sass/CSS below...
 
@@ -8,6 +9,7 @@ body {
   margin: 0;
   padding: 0;
   font-family: sans-serif;
+  font-weight: 100;
   background: #444;
   color: #fff;
   line-height: 1.4;
@@ -22,6 +24,8 @@ button {
   padding: 10px 15px;
   cursor: pointer;
   margin: 3px;
+  transition: opacity 100ms linear;
+  border-radius: 3px;
 }
 
 button:active {
@@ -35,6 +39,7 @@ button:focus {
 button:disabled {
   opacity: .5;
   cursor: default;
+  color: rgba(0,0,0,0.5);
 }
 
 svg {
@@ -50,24 +55,44 @@ svg {
 #actions,
 #info {
   position: fixed;
+  white-space: nowrap;
 }
 
 #modes {
-  left: 10px;
-  top: 10px;
+  right: 8px;
+  top: 13px;
+  .undo-redo {
+    display: inline-block;
+    margin-left: 1em;
+  }
 }
 
 #actions {
-  right: 10px;
-  top: 10px;
+  right: 17px;
+  top: 65px;
+  width: 92px;
+  button {
+    text-align: center;
+    display: block;
+    width: 100%;
+    margin: 6px;
+    &:enabled {
+      opacity: .7;
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
 }
 
 #info {
-  left: 10px;
-  bottom: 10px;
+  top: 71px;
+  right: 125px;
+  width: 112px;
   background: rgba(255,255,255,0.15);
   color: #000;
   padding: 10px 15px;
+  border-radius: 3px;
 }
 
 // -------------------
