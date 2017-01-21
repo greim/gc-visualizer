@@ -14,7 +14,7 @@ import Set exposing (Set)
 import V
 import History exposing (History)
 
-import Debug exposing (log)
+--import Debug exposing (log)
 
 main =
   Html.program
@@ -66,7 +66,7 @@ init =
     movingNode = Nothing
     showCode = False
     codeSize = 20
-    code = "// hello\n"
+    code = "// type here...\n"
     model = Model history viewport mode pendingEdge movingNode showCode codeSize code
     cmd = Task.perform Resize Window.size
   in
@@ -169,7 +169,10 @@ update msg model =
               in
                 (newModel, Cmd.none)
             else
-              (model, Cmd.none)
+              let
+                newModel = { model | pendingEdge = Nothing }
+              in
+                (newModel, Cmd.none)
           Nothing ->
             (model, Cmd.none)
 
@@ -242,7 +245,7 @@ update msg model =
         let
           --newHistory = History.push "clear" Graph.empty model.history
           newHistory = History.init Graph.empty
-          newModel = { model | history = newHistory, code = "" }
+          newModel = { model | history = newHistory, code = "// type here...\n" }
         in
           (newModel, Cmd.none)
 
@@ -400,7 +403,7 @@ view model =
         ]
         [ pendingArrow pending
         , pendingNode pending
-        , Keyed.node "g" [] (edges model.mode modelNodes)
+        , Keyed.node "g" [] (arrows model.mode modelNodes)
         , Keyed.node "g" [] (nodes model.mode modelNodes)
         ]
       , div
@@ -489,8 +492,8 @@ nodes mode graph =
   Graph.toNodeList graph
     |> List.map (\(id, node) -> createNode id mode node)
 
-edges : Mode -> Graph Node -> List (String, Svg Msg)
-edges mode graph =
+arrows : Mode -> Graph Node -> List (String, Svg Msg)
+arrows mode graph =
   Graph.toEdgeList graph
     |> List.map (\pair -> createArrow pair mode graph)
 

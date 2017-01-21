@@ -5,7 +5,7 @@ import Set exposing (Set)
 
 type alias History a =
   { first : a
-  , items : List (String, a)
+  , past : List (String, a)
   , future : List (String, a)
   }
 
@@ -16,34 +16,34 @@ init item =
 push : String -> a -> History a -> History a
 push key item history =
   --let k = log "key" key in
-  case history.items of
+  case history.past of
     (prevKey, prevItem) :: rest ->
       let
-        newItems = case Set.member (prevKey, key) collapsibles of
+        newPast = case Set.member (prevKey, key) collapsibles of
           True -> (key, item) :: rest
-          False -> (key, item) :: history.items
+          False -> (key, item) :: history.past
       in
-        { history | items = newItems, future = [] }
+        { history | past = newPast, future = [] }
     [] ->
       let
-        newItems = (key, item) :: history.items
+        newPast = (key, item) :: history.past
       in
-        { history | items = newItems, future = [] }
+        { history | past = newPast, future = [] }
 
 break : History a -> History a
 break history =
-  case history.items of
+  case history.past of
     (prevKey, prevItem) :: rest ->
-      let newItems = ("", prevItem) :: rest
-      in { history | items = newItems }
+      let newPast = ("", prevItem) :: rest
+      in { history | past = newPast }
     [] ->
       history
 
 pop : History a -> History a
 pop history =
-  case history.items of
+  case history.past of
     first :: rest ->
-      { history | items = rest, future = first :: history.future }
+      { history | past = rest, future = first :: history.future }
     [] ->
       history
 
@@ -52,15 +52,15 @@ unpop history =
   case history.future of
     first :: newFuture ->
       let
-        newItems = first :: history.items
+        newPast = first :: history.past
       in
-        { history | items = newItems, future = newFuture }
+        { history | past = newPast, future = newFuture }
     [] ->
       history
 
 peek : History a -> a
 peek history =
-  case List.head history.items of
+  case List.head history.past of
     Just (key, item) ->
       item
     Nothing ->
@@ -68,11 +68,11 @@ peek history =
 
 hasItems : History a -> Bool
 hasItems history =
-  List.isEmpty history.items |> not
+  List.isEmpty history.past |> not
 
 length : History a -> Int
 length history =
-  List.length history.items
+  List.length history.past
 
 hasFuture : History a -> Bool
 hasFuture history =
@@ -90,6 +90,9 @@ collapsibles =
     , ("start-node", "end-node")
     , ("start-node", "end-nothing")
     , ("move", "move")
+    , ("unmark", "mark")
     , ("mark", "mark")
+    , ("mark", "sweep")
     , ("sweep", "sweep")
+    , ("sweep", "done")
     ]
