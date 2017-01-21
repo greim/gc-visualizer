@@ -29,7 +29,7 @@ button {
 }
 
 button:active {
-  background: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.7);
 }
 
 button:focus {
@@ -182,6 +182,13 @@ svg {
   transition: stroke 250ms linear;
 }
 
+.node text {
+  fill: #fff;
+  font-size: 20px;
+  dominant-baseline: middle;
+  text-shadow: 3px 3px 3px #000, -3px -3px 3px #000, -3px 3px 3px #000, 3px -3px 3px #000;
+}
+
 .pending.node circle {
   stroke: #555;
 }
@@ -249,4 +256,34 @@ svg.moving .node {
 
 svg.adding .node {
   cursor: pointer;
+}
+
+svg.labeling .node {
+  cursor: text;
+}
+
+// -------------------
+
+#label-input {
+  position: fixed;
+  margin: -43px -43px;
+  padding: 20px 20px 20px 57px;
+  border: 3px solid #fff;
+  border-radius: 50px 15px 15px 50px;
+  background: rgba(0,0,0,0.7);
+  input {
+    border: 3px solid #111;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: .1em .1em .4em rgba(0,0,0,0.5) inset;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    color: #000;
+    margin: 0;
+    font-size: 19px;
+    padding: .3em .6em;
+    width: 10em;
+    &:focus {
+      outline: none;
+    }
+  }
 }

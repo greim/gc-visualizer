@@ -13,6 +13,7 @@ import Time exposing (Time)
 import Set exposing (Set)
 import V
 import History exposing (History)
+import Dom
 
 --import Debug exposing (log)
 
@@ -28,7 +29,7 @@ main =
 
 -- MODEL ############################################################################
 
-type Mode = Move | Add | Delete
+type Mode = Move | Add | Delete | Label
 
 type Mark = Marked | Unmarked | None
 
@@ -37,6 +38,7 @@ type alias Node =
   , y : Int
   , isRoot : Bool
   , mark : Mark
+  , label : String
   }
 
 type alias PendingEdge =
@@ -51,6 +53,7 @@ type alias Model =
   , mode : Mode
   , pendingEdge : Maybe PendingEdge
   , movingNode : Maybe Int
+  , labelingNode : Maybe Int
   , showCode : Bool
   , codeSize : Int
   , code : String
@@ -64,10 +67,11 @@ init =
     mode = Add
     pendingEdge = Nothing
     movingNode = Nothing
+    labelingNode = Nothing
     showCode = False
     codeSize = 20
     code = "// type here...\n"
-    model = Model history viewport mode pendingEdge movingNode showCode codeSize code
+    model = Model history viewport mode pendingEdge movingNode labelingNode showCode codeSize code
     cmd = Task.perform Resize Window.size
   in
     (model, cmd)
@@ -89,6 +93,9 @@ type Msg
   | EndMoving
   | RemoveNode Int
   | RemoveEdge Int Int
+  | StartLabeling Int
+  | TrackLabeling String
+  | EndLabeling
   | Clear
   | Unmark
   | MarkStart
@@ -113,7 +120,7 @@ update msg model =
 
       StartOnNothing x y ->
         let
-          node = Node x y False None
+          node = Node x y False None ""
           (id, newNodes) = Graph.addNode node modelNodes
           pendingEdge = Just (PendingEdge id x y)
           newHistory = History.push "start-nothing" newNodes model.history
@@ -123,7 +130,7 @@ update msg model =
 
       EndOnNothing x y ->
         let
-          node = Node x y False None
+          node = Node x y False None ""
           (id, intermediateNodes) = Graph.addNode node modelNodes
           finalNodes = addPending id model.pendingEdge intermediateNodes
           newHistory = case model.pendingEdge of
@@ -194,12 +201,19 @@ update msg model =
         ({ model | mode = mode }, Cmd.none)
 
       StartMoving nodeId x y ->
-        let
-          movingNode = Just nodeId
-          newHistory = History.break model.history
-          newModel = { model | movingNode = movingNode, history = newHistory }
-        in
-          (newModel, Cmd.none)
+        case Graph.getNode nodeId modelNodes of
+          Just node ->
+            let
+              movingNode = Just nodeId
+              newNode = { node | x = x, y = y }
+              newNodes = Graph.updateNode nodeId newNode modelNodes
+              newHistory1 = History.break model.history
+              newHistory2 = History.push "move" newNodes newHistory1
+              newModel = { model | movingNode = movingNode, history = newHistory2 }
+            in
+              (newModel, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
 
       TrackMoving x y ->
         case model.movingNode of
@@ -238,6 +252,37 @@ update msg model =
           newNodes = Graph.removeEdge fromId toId modelNodes
           newHistory = History.push "remove-edge" newNodes model.history
           newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+      StartLabeling nodeId ->
+        let
+          newLabelingNode = Just nodeId
+          newHistory = History.break model.history
+          newModel = { model | labelingNode = newLabelingNode }
+        in
+          (newModel, Task.attempt (always NoOp) (Dom.focus "label-input-field"))
+
+      TrackLabeling label ->
+        case model.labelingNode of
+          Just nodeId ->
+            case Graph.getNode nodeId modelNodes of
+              Just node ->
+                let
+                  newNode = { node | label = label }
+                  newNodes = Graph.updateNode nodeId newNode modelNodes
+                  newHistory = History.push "label" newNodes model.history
+                  newModel = { model | history = newHistory }
+                in
+                  (newModel, Cmd.none)
+              Nothing ->
+                (model, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+      EndLabeling ->
+        let
+          newModel = { model | labelingNode = Nothing }
         in
           (newModel, Cmd.none)
 
@@ -390,6 +435,7 @@ view model =
       Add -> "adding"
       Move -> "moving"
       Delete -> "deleting"
+      Label -> "labeling"
   in
     div []
       [ svg
@@ -406,6 +452,7 @@ view model =
         , Keyed.node "g" [] (arrows model.mode modelNodes)
         , Keyed.node "g" [] (nodes model.mode modelNodes)
         ]
+      , if model.mode == Label then labelInput model.labelingNode modelNodes else div [] []
       , div
         [ id "code"
         , class (if model.showCode then "shown" else "not-shown")
@@ -420,6 +467,7 @@ view model =
         ]
         [ button [onClick (ChangeMode Add), disabled (model.mode == Add)] [icon "mouse-pointer"]
         , button [onClick (ChangeMode Move), disabled (model.mode == Move)] [icon "arrows"]
+        , button [onClick (ChangeMode Label), disabled (model.mode == Label)] [icon "tag"]
         , button [onClick (ChangeMode Delete), disabled (model.mode == Delete)] [icon "remove"]
         , span [class "undo-redo"]
           [ button [onClick Undo, disabled (not <| History.hasItems model.history)] [icon "undo"]
@@ -447,6 +495,33 @@ view model =
         , text ("history future: " ++ (toString (History.futureLength model.history)))
         ]
       ]
+
+labelInput : Maybe Int -> Graph Node -> Html Msg
+labelInput maybeNodeId graph =
+  case maybeNodeId of
+    Just nodeId ->
+      case Graph.getNode nodeId graph of
+        Just node ->
+          Html.form
+            [ Html.Attributes.id "label-input"
+            , Html.Events.onSubmit EndLabeling
+            , Html.Attributes.style
+              [ ("left", (toString node.x) ++ "px")
+              , ("top", (toString node.y) ++ "px")
+              ]
+            ]
+            [ Html.input
+              [ Html.Attributes.id "label-input-field"
+              , Html.Attributes.type_ "text"
+              , Html.Attributes.value node.label
+              , Html.Events.onInput TrackLabeling
+              ]
+              []
+            ]
+        node ->
+          div [] []
+    Nothing ->
+      div [][]
 
 icon : String -> Html Msg
 icon ico =
@@ -506,7 +581,7 @@ createNode id mode node =
       None -> V.node node.isRoot
   in
     ( toString id
-    , nodeFn node.x node.y
+    , nodeFn node.x node.y node.label
         [ nodeMouseDown mode (id, node)
         , nodeMouseMove mode (id, node)
         , nodeMouseUp mode (id, node)
@@ -563,12 +638,10 @@ getXY toVal =
 backdropMouseDown : Mode -> Attribute Msg
 backdropMouseDown mode =
   case mode of
-    Add ->
-      on "mousedown" (getXY (\x y -> StartOnNothing x y))
-    Move ->
-      on "mousedown" (Json.succeed NoOp)
-    Delete ->
-      on "mousedown" (Json.succeed NoOp)
+    Add -> on "mousedown" (getXY (\x y -> StartOnNothing x y))
+    Move -> on "mousedown" (Json.succeed NoOp)
+    Delete -> on "mousedown" (Json.succeed NoOp)
+    Label -> on "mousedown" (Json.succeed NoOp)
 
 backdropMouseMove : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseMove mode pEdge =
@@ -583,16 +656,16 @@ backdropMouseMove mode pEdge =
       on "mousemove" (getXYExtra (\x y which isShift isMeta -> if which == 1 then TrackMoving x y else EndMoving))
     Delete ->
       on "mousemove" (Json.succeed NoOp)
+    Label ->
+      on "mousemove" (Json.succeed NoOp)
 
 backdropMouseUp : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseUp mode pEdge =
   case mode of
-    Add ->
-      on "mouseup" (getXY (\x y -> EndOnNothing x y))
-    Move ->
-      on "mouseup" (Json.succeed EndMoving)
-    Delete ->
-      on "mouseup" (Json.succeed NoOp)
+    Add -> on "mouseup" (getXY (\x y -> EndOnNothing x y))
+    Move -> on "mouseup" (Json.succeed EndMoving)
+    Delete -> on "mouseup" (Json.succeed NoOp)
+    Label -> on "mouseup" (Json.succeed EndLabeling)
 
 nodeMouseDown : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseDown mode (nodeId, node) =
@@ -611,33 +684,29 @@ nodeMouseDown mode (nodeId, node) =
         onWithOptions "mousedown" opts (getXY fun)
     Delete ->
       on "mousedown" (Json.succeed (RemoveNode nodeId))
+    Label ->
+      on "mousedown" (Json.succeed (StartLabeling nodeId))
 
 nodeMouseMove : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseMove mode (nodeId, node) =
   case mode of
-    Add ->
-      onWithOptions "mousemove" (Options True True) (Json.succeed (TrackStretch node.x node.y))
-    Move ->
-      on "mousemove" (Json.succeed NoOp)
-    Delete ->
-      on "mousemove" (Json.succeed NoOp)
+    Add -> onWithOptions "mousemove" (Options True True) (Json.succeed (TrackStretch node.x node.y))
+    Move -> on "mousemove" (Json.succeed NoOp)
+    Delete -> on "mousemove" (Json.succeed NoOp)
+    Label -> on "mousemove" (Json.succeed NoOp)
 
 nodeMouseUp : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseUp mode (nodeId, node) =
   case mode of
-    Add ->
-      onWithOptions "mouseup" (Options True True) (Json.succeed (EndOnNode nodeId))
-    Move ->
-      on "mouseup" (Json.succeed NoOp)
-    Delete ->
-      on "mouseup" (Json.succeed NoOp)
+    Add -> onWithOptions "mouseup" (Options True True) (Json.succeed (EndOnNode nodeId))
+    Move -> on "mouseup" (Json.succeed NoOp)
+    Delete -> on "mouseup" (Json.succeed NoOp)
+    Label -> on "mouseup" (Json.succeed NoOp)
 
 lineMouseDown : Mode -> Int -> Int -> Attribute Msg
 lineMouseDown mode fromId toId =
   case mode of
-    Add ->
-      on "mousedown" (Json.succeed NoOp)
-    Move ->
-      on "mousedown" (Json.succeed NoOp)
-    Delete ->
-      onMouseDown (RemoveEdge fromId toId)
+    Add -> on "mousedown" (Json.succeed NoOp)
+    Move -> on "mousedown" (Json.succeed NoOp)
+    Delete -> onMouseDown (RemoveEdge fromId toId)
+    Label -> on "mousedown" (Json.succeed NoOp)

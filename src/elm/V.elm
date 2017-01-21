@@ -84,31 +84,39 @@ radConvert =
 
 --------------------------------------------------------------------------------
 
-node : Bool -> Int -> Int -> List (Attribute msg) -> Svg msg
-node isRoot cx cy attrs =
-  rawNode isRoot cx cy "node" attrs
-
 pendingNode : Int -> Int -> Svg msg
 pendingNode cx cy =
-  rawNode False cx cy "pending node" []
+  rawNode False cx cy "pending node" "" []
 
-unmarkedNode : Bool -> Int -> Int -> List (Attribute msg) -> Svg msg
-unmarkedNode isRoot cx cy attrs =
-  rawNode isRoot cx cy "unmarked node" attrs
+node : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+node isRoot cx cy label attrs =
+  rawNode isRoot cx cy "node" label attrs
 
-markedNode : Bool -> Int -> Int -> List (Attribute msg) -> Svg msg
-markedNode isRoot cx cy attrs =
-  rawNode isRoot cx cy "marked node" attrs
+unmarkedNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+unmarkedNode isRoot cx cy label attrs =
+  rawNode isRoot cx cy "unmarked node" label attrs
 
-rawNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-rawNode isRoot cx cy cls attrs =
+markedNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+markedNode isRoot cx cy label attrs =
+  rawNode isRoot cx cy "marked node" label attrs
+
+rawNode : Bool -> Int -> Int -> String -> String -> List (Attribute msg) -> Svg msg
+rawNode isRoot x y cls label attrs =
   let
-    cxa = Attr.cx (toString cx)
-    cya = Attr.cy (toString cy)
+    xs = toString x
+    ys = toString y
+    xa = Attr.x (toString (x + 30))
+    ya = Attr.y ys
+    cxa = Attr.cx xs
+    cya = Attr.cy ys
     rOuter = Attr.r "20"
     rInner = Attr.r "9"
     class = Attr.class (if isRoot then "root " ++ cls else cls)
     circ = Svg.circle [ cxa, cya, rOuter ] []
     dot = Svg.circle [ cxa, cya, rInner, Attr.style "pointer-events:none", Attr.class "dot" ] []
   in
-    Svg.g (class :: attrs) [ circ, dot ]
+    if label == "" then
+      Svg.g (class :: attrs) [ circ, dot ]
+    else
+      let text = Svg.text_ [xa, ya] [ Svg.text label ]
+      in Svg.g (class :: attrs) [ circ, dot, text ]
