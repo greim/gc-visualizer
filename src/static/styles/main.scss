@@ -223,7 +223,7 @@ svg {
 // -------------------
 
 .arrow {
-  opacity: .45;
+  opacity: .25;
 }
 
 .arrow line {
@@ -260,6 +260,11 @@ svg.adding .node {
 
 svg.labeling .node {
   cursor: text;
+}
+
+svg.panning,
+svg.panning .node {
+  cursor: move;
 }
 
 // -------------------

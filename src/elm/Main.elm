@@ -14,8 +14,8 @@ import Set exposing (Set)
 import V
 import History exposing (History)
 import Dom
-
---import Debug exposing (log)
+import Keyboard
+import Debug exposing (log)
 
 main =
   Html.program
@@ -29,7 +29,7 @@ main =
 
 -- MODEL ############################################################################
 
-type Mode = Move | Add | Delete | Label
+type Mode = Move | Add | Delete | Label | Pan
 
 type Mark = Marked | Unmarked | None
 
@@ -57,6 +57,7 @@ type alias Model =
   , showCode : Bool
   , codeSize : Int
   , code : String
+  , panningFrom : Maybe (Int, Int)
   }
 
 init : (Model, Cmd Msg)
@@ -71,7 +72,8 @@ init =
     showCode = False
     codeSize = 20
     code = "// type here...\n"
-    model = Model history viewport mode pendingEdge movingNode labelingNode showCode codeSize code
+    panningFrom = Nothing
+    model = Model history viewport mode pendingEdge movingNode labelingNode showCode codeSize code panningFrom
     cmd = Task.perform Resize Window.size
   in
     (model, cmd)
@@ -110,6 +112,10 @@ type Msg
   | ChangeCodeSize Int
   | ChangeCode String
   | NoOp
+  | KeyDown Keyboard.KeyCode
+  | StartPanning Int Int
+  | TrackPanning Int Int
+  | EndPanning
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -198,7 +204,11 @@ update msg model =
         ({ model | pendingEdge = Nothing }, Cmd.none)
 
       ChangeMode mode ->
-        ({ model | mode = mode }, Cmd.none)
+        let
+          newLabelingNode = Nothing
+          newModel = { model | mode = mode, labelingNode = newLabelingNode }
+        in
+          (newModel, Cmd.none)
 
       StartMoving nodeId x y ->
         case Graph.getNode nodeId modelNodes of
@@ -288,8 +298,7 @@ update msg model =
 
       Clear ->
         let
-          --newHistory = History.push "clear" Graph.empty model.history
-          newHistory = History.init Graph.empty
+          newHistory = History.push "clear" Graph.empty model.history
           newModel = { model | history = newHistory, code = "// type here...\n" }
         in
           (newModel, Cmd.none)
@@ -392,8 +401,44 @@ update msg model =
         in
           (newModel, Cmd.none)
 
+      KeyDown keyCode ->
+        let
+          newLabelingNode = if keyCode == 27 then Nothing else model.labelingNode
+          newPendingEdge = if keyCode == 27 then Nothing else model.pendingEdge
+          newModel = { model | pendingEdge = newPendingEdge, labelingNode = newLabelingNode }
+        in
+          (newModel, Cmd.none)
+
       NoOp ->
         (model, Cmd.none)
+
+      StartPanning x y ->
+        let
+          newPanningFrom = Just (x, y)
+          newModel = { model | panningFrom = newPanningFrom }
+        in
+          (newModel, Cmd.none)
+
+      TrackPanning x y ->
+        case model.panningFrom of
+          Just (fromX, fromY) ->
+            let
+              diffX = x - fromX
+              diffY = y - fromY
+              newPanningFrom = Just (x, y)
+              newNodes = Graph.map (\node -> { node | x = (node.x + diffX), y = (node.y + diffY) }) modelNodes
+              newHistory = History.push "pan" newNodes model.history
+              newModel = { model | history = newHistory, panningFrom = newPanningFrom }
+            in
+              (newModel, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+      EndPanning ->
+        let
+          newModel = { model | panningFrom = Nothing }
+        in
+          (newModel, Cmd.none)
 
 addPending : Int -> Maybe PendingEdge -> Graph Node -> Graph Node
 addPending to pendingEdge graph =
@@ -415,7 +460,10 @@ delay time msg =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Window.resizes Resize
+  Sub.batch
+    [ Keyboard.downs KeyDown
+    , Window.resizes Resize
+    ]
 
 
 
@@ -436,6 +484,7 @@ view model =
       Move -> "moving"
       Delete -> "deleting"
       Label -> "labeling"
+      Pan -> "panning"
   in
     div []
       [ svg
@@ -468,6 +517,7 @@ view model =
         [ button [onClick (ChangeMode Add), disabled (model.mode == Add)] [icon "mouse-pointer"]
         , button [onClick (ChangeMode Move), disabled (model.mode == Move)] [icon "arrows"]
         , button [onClick (ChangeMode Label), disabled (model.mode == Label)] [icon "tag"]
+        , button [onClick (ChangeMode Pan), disabled (model.mode == Pan)] [icon "arrows-alt"]
         , button [onClick (ChangeMode Delete), disabled (model.mode == Delete)] [icon "remove"]
         , span [class "undo-redo"]
           [ button [onClick Undo, disabled (not <| History.hasItems model.history)] [icon "undo"]
@@ -514,6 +564,7 @@ labelInput maybeNodeId graph =
               [ Html.Attributes.id "label-input-field"
               , Html.Attributes.type_ "text"
               , Html.Attributes.value node.label
+              , Html.Attributes.autocomplete False
               , Html.Events.onInput TrackLabeling
               ]
               []
@@ -642,6 +693,7 @@ backdropMouseDown mode =
     Move -> on "mousedown" (Json.succeed NoOp)
     Delete -> on "mousedown" (Json.succeed NoOp)
     Label -> on "mousedown" (Json.succeed NoOp)
+    Pan -> on "mousedown" (getXY (\x y -> StartPanning x y))
 
 backdropMouseMove : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseMove mode pEdge =
@@ -658,6 +710,8 @@ backdropMouseMove mode pEdge =
       on "mousemove" (Json.succeed NoOp)
     Label ->
       on "mousemove" (Json.succeed NoOp)
+    Pan ->
+      on "mousemove" (getXY (\x y -> TrackPanning x y))
 
 backdropMouseUp : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseUp mode pEdge =
@@ -666,6 +720,7 @@ backdropMouseUp mode pEdge =
     Move -> on "mouseup" (Json.succeed EndMoving)
     Delete -> on "mouseup" (Json.succeed NoOp)
     Label -> on "mouseup" (Json.succeed EndLabeling)
+    Pan -> on "mouseup" (Json.succeed EndPanning)
 
 nodeMouseDown : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseDown mode (nodeId, node) =
@@ -686,6 +741,8 @@ nodeMouseDown mode (nodeId, node) =
       on "mousedown" (Json.succeed (RemoveNode nodeId))
     Label ->
       on "mousedown" (Json.succeed (StartLabeling nodeId))
+    Pan ->
+      on "mousedown" (Json.succeed NoOp)
 
 nodeMouseMove : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseMove mode (nodeId, node) =
@@ -694,6 +751,7 @@ nodeMouseMove mode (nodeId, node) =
     Move -> on "mousemove" (Json.succeed NoOp)
     Delete -> on "mousemove" (Json.succeed NoOp)
     Label -> on "mousemove" (Json.succeed NoOp)
+    Pan -> on "mousemove" (Json.succeed NoOp)
 
 nodeMouseUp : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseUp mode (nodeId, node) =
@@ -702,6 +760,7 @@ nodeMouseUp mode (nodeId, node) =
     Move -> on "mouseup" (Json.succeed NoOp)
     Delete -> on "mouseup" (Json.succeed NoOp)
     Label -> on "mouseup" (Json.succeed NoOp)
+    Pan -> on "mouseup" (Json.succeed NoOp)
 
 lineMouseDown : Mode -> Int -> Int -> Attribute Msg
 lineMouseDown mode fromId toId =
@@ -710,3 +769,4 @@ lineMouseDown mode fromId toId =
     Move -> on "mousedown" (Json.succeed NoOp)
     Delete -> onMouseDown (RemoveEdge fromId toId)
     Label -> on "mousedown" (Json.succeed NoOp)
+    Pan -> on "mousedown" (Json.succeed NoOp)

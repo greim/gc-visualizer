@@ -95,4 +95,6 @@ collapsibles =
     , ("mark", "sweep")
     , ("sweep", "sweep")
     , ("sweep", "done")
+    , ("label", "label")
+    , ("pan", "pan")
     ]
