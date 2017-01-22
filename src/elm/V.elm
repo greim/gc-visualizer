@@ -6,28 +6,28 @@ import Debug exposing (log)
 
 --------------------------------------------------------------------------------
 
-arrow : Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
-arrow x1 y1 x2 y2 attrs =
-  rawArrow x1 y1 x2 y2 "arrow" attrs
-
 pendingArrow : Int -> Int -> Int -> Int -> Svg msg
 pendingArrow x1 y1 x2 y2 =
-  rawArrow x1 y1 x2 y2 "pending arrow" []
+  rawArrow True x1 y1 x2 y2 "pending arrow" []
 
-unmarkedArrow : Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
-unmarkedArrow x1 y1 x2 y2 attrs =
-  rawArrow x1 y1 x2 y2 "unmarked arrow" attrs
+arrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
+arrow isStrong x1 y1 x2 y2 attrs =
+  rawArrow isStrong x1 y1 x2 y2 "arrow" attrs
 
-markedArrow : Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
-markedArrow x1 y1 x2 y2 attrs =
-  rawArrow x1 y1 x2 y2 "marked arrow" attrs
+unmarkedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
+unmarkedArrow isStrong x1 y1 x2 y2 attrs =
+  rawArrow isStrong x1 y1 x2 y2 "unmarked arrow" attrs
 
-rawArrow : Int -> Int -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-rawArrow x1 y1 x2 y2 cls attrs =
+markedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
+markedArrow isStrong x1 y1 x2 y2 attrs =
+  rawArrow isStrong x1 y1 x2 y2 "marked arrow" attrs
+
+rawArrow : Bool -> Int -> Int -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+rawArrow isStrong x1 y1 x2 y2 cls attrs =
   let
     aHead = arrowHead x1 y1 x2 y2
     aBody = arrowBody x1 y1 x2 y2
-    class = Attr.class cls
+    class = Attr.class (if isStrong then cls else cls ++ " weak")
   in
     Svg.g (class :: attrs) [ aHead, aBody ]
 

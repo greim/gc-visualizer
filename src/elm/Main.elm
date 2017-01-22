@@ -15,7 +15,7 @@ import V
 import History exposing (History)
 import Dom
 import Keyboard
-import Debug exposing (log)
+--import Debug exposing (log)
 
 main =
   Html.program
@@ -47,8 +47,10 @@ type alias PendingEdge =
   , y : Int
   }
 
+type Ref = Strong | Weak
+
 type alias Model =
-  { history : History (Graph Node)
+  { history : History (Graph Node Ref)
   , viewport : Window.Size
   , mode : Mode
   , pendingEdge : Maybe PendingEdge
@@ -116,6 +118,7 @@ type Msg
   | StartPanning Int Int
   | TrackPanning Int Int
   | EndPanning
+  | ToggleRef Int Int
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -176,7 +179,7 @@ update msg model =
           Just pendingEdge ->
             if pendingEdge.from /= to then
               let
-                newNodes = Graph.addEdge pendingEdge.from to modelNodes
+                newNodes = Graph.addEdge pendingEdge.from Strong to modelNodes
                 newHistory = History.push "end-node" newNodes model.history
                 newModel = { model | pendingEdge = Nothing, history = newHistory }
               in
@@ -315,7 +318,7 @@ update msg model =
         let
           ids = Graph.toNodeList modelNodes
             |> List.filter (\(id, node) -> node.isRoot)
-            |> List.map (\(id, node) -> Graph.findConnected id modelNodes)
+            |> List.map (\(id, node) -> Graph.findConnected (\from ref to -> ref == Strong) id modelNodes)
             |> List.map (\set -> Set.toList set)
             |> List.concat
         in
@@ -446,11 +449,27 @@ update msg model =
           Nothing ->
             (model, Cmd.none)
 
-addPending : Int -> Maybe PendingEdge -> Graph Node -> Graph Node
+      ToggleRef fromId toId ->
+        case Graph.getEdge fromId toId modelNodes of
+          Just ref ->
+            let
+              newRef = case ref of
+                Strong -> Weak
+                Weak -> Strong
+              newNodes = Graph.updateEdge fromId newRef toId modelNodes
+              newHistory = History.push "toggle-ref" newNodes model.history
+              newModel = { model | history = newHistory }
+            in
+              (newModel, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
+
+
+addPending : Int -> Maybe PendingEdge -> Graph Node Ref -> Graph Node Ref
 addPending to pendingEdge graph =
   case pendingEdge of
     Just pendingEdge ->
-      Graph.addEdge pendingEdge.from to graph
+      Graph.addEdge pendingEdge.from Strong to graph
     Nothing ->
       graph
 
@@ -560,7 +579,7 @@ makeViewBox : Int -> Int -> Int -> Int -> String
 makeViewBox x y width height =
   (toString x) ++ " " ++ (toString y) ++ " " ++ (toString width) ++ " " ++ (toString height)
 
-labelInput : Maybe Int -> Graph Node -> Html Msg
+labelInput : Maybe Int -> Graph Node Ref -> Html Msg
 labelInput maybeNodeId graph =
   case maybeNodeId of
     Just nodeId ->
@@ -592,7 +611,7 @@ icon : String -> Html Msg
 icon ico =
   Html.i [class ("fa fa-" ++ ico)] []
 
-pendingInfo : Maybe PendingEdge -> Graph Node -> Maybe (PendingEdge, Node)
+pendingInfo : Maybe PendingEdge -> Graph Node Ref -> Maybe (PendingEdge, Node)
 pendingInfo maybePendingEdge graph =
   case maybePendingEdge of
     Just pendingEdge ->
@@ -627,15 +646,15 @@ pendingNode pendingInfo =
     Nothing ->
       g [] []
 
-nodes : Mode -> Graph Node -> List (String, Svg Msg)
+nodes : Mode -> Graph Node Ref -> List (String, Svg Msg)
 nodes mode graph =
   Graph.toNodeList graph
     |> List.map (\(id, node) -> createNode id mode node)
 
-arrows : Mode -> Graph Node -> List (String, Svg Msg)
+arrows : Mode -> Graph Node Ref -> List (String, Svg Msg)
 arrows mode graph =
   Graph.toEdgeList graph
-    |> List.map (\pair -> createArrow pair mode graph)
+    |> List.map (\edge -> createArrow edge mode graph)
 
 createNode : Int -> Mode -> Node -> (String, Svg Msg)
 createNode id mode node =
@@ -653,8 +672,8 @@ createNode id mode node =
         ]
     )
 
-createArrow : (Int, Int) -> Mode -> Graph Node -> (String, Svg Msg)
-createArrow (fromId, toId) mode graph =
+createArrow : (Int, Ref, Int) -> Mode -> Graph Node Ref -> (String, Svg Msg)
+createArrow (fromId, ref, toId) mode graph =
   let
     from = Graph.getNode fromId graph
     to = Graph.getNode toId graph
@@ -662,11 +681,12 @@ createArrow (fromId, toId) mode graph =
     case (from, to) of
       (Just fromNode, Just toNode) ->
         let
+          isStrong = ref == Strong
           arrowFn = case (fromNode.mark, toNode.mark) of
-            (Marked, Marked) -> V.markedArrow
-            (None, None) -> V.arrow
-            _ -> V.unmarkedArrow
-          attr = lineMouseDown mode fromId toId
+            (Marked, Marked) -> V.markedArrow isStrong
+            (None, None) -> V.arrow isStrong
+            _ -> V.unmarkedArrow isStrong
+          attr = arrowMouseDown mode fromId toId
           arr = arrowFn fromNode.x fromNode.y toNode.x toNode.y [attr]
           key = (toString fromId) ++ "->" ++ (toString toId)
         in
@@ -776,10 +796,10 @@ nodeMouseUp mode (nodeId, node) =
     Label -> on "mouseup" (Json.succeed NoOp)
     Pan -> on "mouseup" (Json.succeed NoOp)
 
-lineMouseDown : Mode -> Int -> Int -> Attribute Msg
-lineMouseDown mode fromId toId =
+arrowMouseDown : Mode -> Int -> Int -> Attribute Msg
+arrowMouseDown mode fromId toId =
   case mode of
-    Add -> on "mousedown" (Json.succeed NoOp)
+    Add -> onWithOptions "mousedown" (Options True True) (getXYExtra (\x y which isShift isMeta -> ToggleRef fromId toId))
     Move -> on "mousedown" (Json.succeed NoOp)
     Delete -> onMouseDown (RemoveEdge fromId toId)
     Label -> on "mousedown" (Json.succeed NoOp)

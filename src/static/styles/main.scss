@@ -233,8 +233,13 @@ svg {
   transition: stroke 250ms linear;
 }
 
-.arrow-head line {
+.arrow.weak line {
+  stroke-dasharray: 18, 13;
+}
+
+.arrow .arrow-head line {
   stroke-width: 5px;
+  stroke-dasharray: none;
 }
 
 .pending.arrow line {

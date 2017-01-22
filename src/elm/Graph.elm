@@ -1,4 +1,4 @@
-module Graph exposing (Graph, empty, singleton, addNode, updateNode, updateNodeFn, getNode, removeNode, toNodeList, toEdgeList, addEdge, removeEdge, findConnected, map)
+module Graph exposing (Graph, empty, singleton, addNode, updateNode, updateNodeFn, getNode, removeNode, toNodeList, toEdgeList, addEdge, removeEdge, findConnected, map, updateEdge, getEdge)
 import Dict exposing (Dict)
 import Set exposing (Set)
 import Queue exposing (Queue)
@@ -59,8 +59,8 @@ removeNode : Int -> Graph a b -> Graph a b
 removeNode id graph =
   let
     newNodes = Dict.remove id graph.nodes
-    filterFn = (\anId -> id /= anId)
-    mapFn = (\from tos -> Set.filter filterFn tos)
+    filterFn = (\anId b -> id /= anId)
+    mapFn = (\from tos -> Dict.filter filterFn tos)
     truncEdges = Dict.remove id graph.edges
     newEdges = Dict.map mapFn truncEdges
   in
@@ -81,16 +81,16 @@ map mapFun graph =
     { graph | nodes = newNodes }
 
 
-toPairs : Int -> Set Int -> List (Int, Int)
+toPairs : Int -> Dict Int b -> List (Int, b, Int)
 toPairs from tos =
   let
-    tosList = Set.toList tos
-    mapFn = (\to -> (from, to))
+    tosList = Dict.toList tos
+    mapFn = (\(to, b) -> (from, b, to))
   in
     List.map mapFn tosList
 
 
-toEdgeList : Graph a b -> List (Int, Int, b)
+toEdgeList : Graph a b -> List (Int, b, Int)
 toEdgeList graph =
   let
     rawList = Dict.toList graph.edges
@@ -99,8 +99,8 @@ toEdgeList graph =
     List.foldl foldFn [] rawList
 
 
-addEdge : Int -> Int -> b -> Graph a b -> Graph a b
-addEdge from to val graph =
+addEdge : Int -> b -> Int -> Graph a b -> Graph a b
+addEdge from val to graph =
   case (Dict.get from graph.nodes, Dict.get to graph.nodes) of
     (Just f, Just t) ->
       let
@@ -112,6 +112,33 @@ addEdge from to val graph =
         { graph | edges = newEdges }
     _ ->
       graph
+
+
+updateEdge : Int -> b -> Int -> Graph a b -> Graph a b
+updateEdge from b to graph =
+  case Dict.get from graph.edges of
+    Just tos ->
+      case Dict.get to tos of
+        Just oldB ->
+          let
+            newTos = Dict.insert to b tos
+            newEdges = Dict.insert from newTos graph.edges
+          in
+            { graph | edges = newEdges }
+
+        Nothing ->
+          graph
+    Nothing ->
+      graph
+
+
+getEdge : Int -> Int -> Graph a b -> Maybe b
+getEdge from to graph =
+  case Dict.get from graph.edges of
+    Just tos ->
+      Dict.get to tos
+    Nothing ->
+      Nothing
 
 
 removeEdge : Int -> Int -> Graph a b -> Graph a b
@@ -127,28 +154,30 @@ removeEdge from to graph =
       graph
 
 
-findConnected : Int -> Graph a b -> Set Int
-findConnected id graph =
+findConnected : (Int -> b -> Int -> Bool) -> Int -> Graph a b -> Set Int
+findConnected filterFn id graph =
   let
     queue = Queue.singleton id
     results = Set.singleton id
   in
-    findConnectedUgly queue results graph
+    findConnectedUgly filterFn queue results graph
 
 
-findConnectedUgly : Queue Int -> Set Int -> Graph a b -> Set Int
-findConnectedUgly queue results graph =
+findConnectedUgly : (Int -> b -> Int -> Bool) -> Queue Int -> Set Int -> Graph a b -> Set Int
+findConnectedUgly filterFn queue results graph =
   case Queue.deq queue of
-    (Just id, smallerQueue) ->
+    (Just from, smallerQueue) ->
       let
-        edgeIds = case Dict.get id graph.edges of
-          Nothing -> Set.empty
-          Just t -> t
-        unvisitedIds = Set.diff edgeIds results
-        newResults = Set.union results unvisitedIds
-        listTos = Set.toList unvisitedIds
+        tosDict = case Dict.get from graph.edges of
+          Nothing -> Dict.empty
+          Just tosDict -> tosDict
+        filteredTosDict = Dict.filter (\to a -> (filterFn from a to)) tosDict
+        tos = Set.fromList (Dict.keys filteredTosDict)
+        unvisitedTos = Set.diff tos results
+        newResults = Set.union results unvisitedTos
+        listTos = Set.toList unvisitedTos
         newQueue = Queue.enqAll listTos smallerQueue
       in
-        findConnectedUgly newQueue newResults graph
+        findConnectedUgly filterFn newQueue newResults graph
     (Nothing, sameQueue) ->
       results
