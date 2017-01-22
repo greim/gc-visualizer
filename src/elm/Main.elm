@@ -57,7 +57,7 @@ type alias Model =
   , showCode : Bool
   , codeSize : Int
   , code : String
-  , panningFrom : Maybe (Int, Int)
+  , panning : Maybe ((Int, Int), (Int, Int))
   }
 
 init : (Model, Cmd Msg)
@@ -72,8 +72,8 @@ init =
     showCode = False
     codeSize = 20
     code = "// type here...\n"
-    panningFrom = Nothing
-    model = Model history viewport mode pendingEdge movingNode labelingNode showCode codeSize code panningFrom
+    panning = Nothing
+    model = Model history viewport mode pendingEdge movingNode labelingNode showCode codeSize code panning
     cmd = Task.perform Resize Window.size
   in
     (model, cmd)
@@ -414,31 +414,37 @@ update msg model =
 
       StartPanning x y ->
         let
-          newPanningFrom = Just (x, y)
-          newModel = { model | panningFrom = newPanningFrom }
+          newPanning = Just ((x, y), (x, y))
+          newModel = { model | panning = newPanning }
         in
           (newModel, Cmd.none)
 
       TrackPanning x y ->
-        case model.panningFrom of
-          Just (fromX, fromY) ->
+        case model.panning of
+          Just ((x1, y1), (x2, y2)) ->
             let
-              diffX = x - fromX
-              diffY = y - fromY
-              newPanningFrom = Just (x, y)
-              newNodes = Graph.map (\node -> { node | x = (node.x + diffX), y = (node.y + diffY) }) modelNodes
-              newHistory = History.push "pan" newNodes model.history
-              newModel = { model | history = newHistory, panningFrom = newPanningFrom }
+              newPanning = Just ((x1, y1), (x, y))
+              --newNodes = Graph.map (\node -> { node | x = (node.x + diffX), y = (node.y + diffY) }) modelNodes
+              --newHistory = History.push "pan" newNodes model.history
+              newModel = { model | panning = newPanning }
             in
               (newModel, Cmd.none)
           Nothing ->
             (model, Cmd.none)
 
       EndPanning ->
-        let
-          newModel = { model | panningFrom = Nothing }
-        in
-          (newModel, Cmd.none)
+        case model.panning of
+          Just ((x1, y1), (x2, y2)) ->
+            let
+              diffX = x2 - x1
+              diffY = y2 - y1
+              newNodes = Graph.map (\node -> { node | x = (node.x + diffX), y = (node.y + diffY) }) modelNodes
+              newHistory = History.push "pan" newNodes model.history
+              newModel = { model | history = newHistory, panning = Nothing }
+            in
+              (newModel, Cmd.none)
+          Nothing ->
+            (model, Cmd.none)
 
 addPending : Int -> Maybe PendingEdge -> Graph Node -> Graph Node
 addPending to pendingEdge graph =
@@ -475,7 +481,11 @@ view model =
     modelNodes = History.peek model.history
     widthStr = toString model.viewport.width
     heightStr = toString model.viewport.height
-    box = "0 0 " ++ widthStr ++ " " ++ heightStr
+    box = case model.panning of
+      Just ((x1, y1), (x2, y2)) ->
+        makeViewBox (x1 - x2) (y1 - y2) model.viewport.width model.viewport.height
+      Nothing ->
+        makeViewBox 0 0 model.viewport.width model.viewport.height
     widthPx = widthStr ++ "px"
     heightPx = heightStr ++ "px"
     pending = pendingInfo model.pendingEdge modelNodes
@@ -545,6 +555,10 @@ view model =
         , text ("history future: " ++ (toString (History.futureLength model.history)))
         ]
       ]
+
+makeViewBox : Int -> Int -> Int -> Int -> String
+makeViewBox x y width height =
+  (toString x) ++ " " ++ (toString y) ++ " " ++ (toString width) ++ " " ++ (toString height)
 
 labelInput : Maybe Int -> Graph Node -> Html Msg
 labelInput maybeNodeId graph =
