@@ -3,23 +3,23 @@ import Dict exposing (Dict)
 import Set exposing (Set)
 import Queue exposing (Queue)
 
-type alias Graph a =
+type alias Graph a b =
   { nodes : Dict Int a
-  , edges : Dict Int (Set Int)
+  , edges : Dict Int (Dict Int b)
   , nextId : Int
   }
 
-empty : Graph a
+empty : Graph a b
 empty =
   Graph (Dict.empty) (Dict.empty) 1
 
 
-singleton : a -> Graph a
+singleton : a -> Graph a b
 singleton a =
   Graph (Dict.singleton 0 a) (Dict.empty) 1
 
 
-addNode : a -> Graph a -> (Int, Graph a)
+addNode : a -> Graph a b -> (Int, Graph a b)
 addNode a graph =
   let
     id = graph.nextId
@@ -29,7 +29,7 @@ addNode a graph =
     (id, newGraph)
 
 
-updateNode : Int -> a -> Graph a -> Graph a
+updateNode : Int -> a -> Graph a b -> Graph a b
 updateNode id node graph =
   case Dict.get id graph.nodes of
     Just oldNode ->
@@ -41,7 +41,7 @@ updateNode id node graph =
       graph
 
 
-updateNodeFn : (a -> a) -> Int -> Graph a -> Graph a
+updateNodeFn : (a -> a) -> Int -> Graph a b -> Graph a b
 updateNodeFn update id graph =
   case getNode id graph of
     Just node ->
@@ -50,12 +50,12 @@ updateNodeFn update id graph =
       graph
 
 
-getNode : Int -> Graph a -> Maybe a
+getNode : Int -> Graph a b -> Maybe a
 getNode id graph =
   Dict.get id graph.nodes
 
 
-removeNode : Int -> Graph a -> Graph a
+removeNode : Int -> Graph a b -> Graph a b
 removeNode id graph =
   let
     newNodes = Dict.remove id graph.nodes
@@ -67,12 +67,12 @@ removeNode id graph =
     { graph | nodes = newNodes, edges = newEdges }
 
 
-toNodeList : Graph a -> List (Int, a)
+toNodeList : Graph a b -> List (Int, a)
 toNodeList graph =
   Dict.toList graph.nodes
 
 
-map : (a -> b) -> Graph a -> Graph b
+map : (a -> a) -> Graph a b -> Graph a b
 map mapFun graph =
   let
     newMapFun = (\id a -> mapFun a)
@@ -90,7 +90,7 @@ toPairs from tos =
     List.map mapFn tosList
 
 
-toEdgeList : Graph a -> List (Int, Int)
+toEdgeList : Graph a b -> List (Int, Int, b)
 toEdgeList graph =
   let
     rawList = Dict.toList graph.edges
@@ -99,14 +99,14 @@ toEdgeList graph =
     List.foldl foldFn [] rawList
 
 
-addEdge : Int -> Int -> Graph a -> Graph a
-addEdge from to graph =
+addEdge : Int -> Int -> b -> Graph a b -> Graph a b
+addEdge from to val graph =
   case (Dict.get from graph.nodes, Dict.get to graph.nodes) of
     (Just f, Just t) ->
       let
         newTos = case Dict.get from graph.edges of
-          Just tos -> Set.insert to tos
-          Nothing -> Set.singleton to
+          Just tos -> Dict.insert to val tos
+          Nothing -> Dict.singleton to val
         newEdges = Dict.insert from newTos graph.edges
       in
         { graph | edges = newEdges }
@@ -114,12 +114,12 @@ addEdge from to graph =
       graph
 
 
-removeEdge : Int -> Int -> Graph a -> Graph a
+removeEdge : Int -> Int -> Graph a b -> Graph a b
 removeEdge from to graph =
   case Dict.get from graph.edges of
     Just tos ->
       let
-        newTos = Set.remove to tos
+        newTos = Dict.remove to tos
         newEdges = Dict.insert from newTos graph.edges
       in
         { graph | edges = newEdges }
@@ -127,7 +127,7 @@ removeEdge from to graph =
       graph
 
 
-findConnected : Int -> Graph a -> Set Int
+findConnected : Int -> Graph a b -> Set Int
 findConnected id graph =
   let
     queue = Queue.singleton id
@@ -136,7 +136,7 @@ findConnected id graph =
     findConnectedUgly queue results graph
 
 
-findConnectedUgly : Queue Int -> Set Int -> Graph a -> Set Int
+findConnectedUgly : Queue Int -> Set Int -> Graph a b -> Set Int
 findConnectedUgly queue results graph =
   case Queue.deq queue of
     (Just id, smallerQueue) ->
