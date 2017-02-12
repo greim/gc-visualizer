@@ -1,4 +1,4 @@
-module V exposing (arrow, pendingArrow, unmarkedArrow, markedArrow, node, pendingNode, unmarkedNode, markedNode)
+module V exposing (arrow, pendingArrow, markedArrow, unmarkedArrow, node, pendingNode, markedNode, unmarkedNode)
 
 import Svg exposing (Svg, Attribute)
 import Svg.Attributes as Attr
@@ -14,13 +14,13 @@ arrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
 arrow isStrong x1 y1 x2 y2 attrs =
   rawArrow isStrong x1 y1 x2 y2 "arrow" attrs
 
-unmarkedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
-unmarkedArrow isStrong x1 y1 x2 y2 attrs =
-  rawArrow isStrong x1 y1 x2 y2 "unmarked arrow" attrs
-
 markedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
 markedArrow isStrong x1 y1 x2 y2 attrs =
   rawArrow isStrong x1 y1 x2 y2 "marked arrow" attrs
+
+unmarkedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
+unmarkedArrow isStrong x1 y1 x2 y2 attrs =
+  rawArrow isStrong x1 y1 x2 y2 "unmarked arrow" attrs
 
 rawArrow : Bool -> Int -> Int -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
 rawArrow isStrong x1 y1 x2 y2 cls attrs =
@@ -92,13 +92,13 @@ node : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
 node isRoot cx cy label attrs =
   rawNode isRoot cx cy "node" label attrs
 
-unmarkedNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-unmarkedNode isRoot cx cy label attrs =
-  rawNode isRoot cx cy "unmarked node" label attrs
-
 markedNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
 markedNode isRoot cx cy label attrs =
   rawNode isRoot cx cy "marked node" label attrs
+
+unmarkedNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+unmarkedNode isRoot cx cy label attrs =
+  rawNode isRoot cx cy "unmarked node" label attrs
 
 rawNode : Bool -> Int -> Int -> String -> String -> List (Attribute msg) -> Svg msg
 rawNode isRoot x y cls label attrs =

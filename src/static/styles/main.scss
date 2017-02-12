@@ -194,15 +194,15 @@ svg {
   stroke: #555;
 }
 
-.unmarked.node circle {
+.marked.node circle {
   stroke: #555;
 }
 
-.unmarked.node .dot {
+.marked.node .dot {
   stroke: #6f6;
 }
 
-.marked.node circle {
+.unmarked.node circle {
   stroke: #6f6;
 }
 
@@ -217,7 +217,7 @@ svg {
   visibility: visible;
 }
 
-.unmarked.node .dot {
+.marked.node .dot {
   fill: #6f6;
 }
 
@@ -246,11 +246,11 @@ svg {
   stroke: #555;
 }
 
-.unmarked.arrow line {
+.marked.arrow line {
   stroke: #555;
 }
 
-.marked.arrow line {
+.unmarked.arrow line {
   stroke: #6f6;
 }
 
