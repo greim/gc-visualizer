@@ -102,7 +102,7 @@ type Msg
   | EndLabeling
   | Clear
   | Unmark
-  | MarkStart
+  | Find
   | Mark (List Int)
   | SweepStart
   | Sweep (List Int)
@@ -314,7 +314,7 @@ update msg model =
         in
           (newModel, Cmd.none)
 
-      MarkStart ->
+      Find ->
         let
           ids = Graph.toNodeList modelNodes
             |> List.filter (\(id, node) -> node.isRoot)
@@ -556,8 +556,8 @@ view model =
       , div
         [ id "actions"
         ]
-        [ button [onClick Unmark] [text "Start"]
-        , button [onClick MarkStart] [text "Mark"]
+        [ button [onClick Unmark] [text "Mark"]
+        , button [onClick Find] [text "Find"]
         , button [onClick SweepStart] [text "Sweep"]
         , button [onClick Done] [text "Done"]
         , button [onClick Clear] [text "Clear"]
