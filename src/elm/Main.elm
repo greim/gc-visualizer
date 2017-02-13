@@ -73,7 +73,7 @@ init =
     labelingNode = Nothing
     showCode = False
     codeSize = 20
-    code = "// write code here...\n"
+    code = typeCodeComment
     panning = Nothing
     model = Model history viewport mode pendingEdge movingNode labelingNode showCode codeSize code panning
     cmd = Task.perform Resize Window.size
@@ -157,7 +157,7 @@ update msg model =
             case isMeta of
               True ->
                 let
-                  newNode = { node | isRoot = True }
+                  newNode = { node | isRoot = not node.isRoot }
                   newNodes = Graph.updateNode from newNode modelNodes
                   pendingEdge = Just (PendingEdge from x y)
                   newHistory = History.push "start-node" newNodes model.history
@@ -302,7 +302,7 @@ update msg model =
       Clear ->
         let
           newHistory = History.push "clear" Graph.empty model.history
-          newModel = { model | history = newHistory, code = "// type here...\n" }
+          newModel = { model | history = newHistory, code = typeCodeComment }
         in
           (newModel, Cmd.none)
 
@@ -574,6 +574,10 @@ view model =
         , text ("history future: " ++ (toString (History.futureLength model.history)))
         ]
       ]
+
+typeCodeComment : String
+typeCodeComment =
+  "// write code here\n"
 
 makeViewBox : Int -> Int -> Int -> Int -> String
 makeViewBox x y width height =
