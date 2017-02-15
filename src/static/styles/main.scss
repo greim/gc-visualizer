@@ -10,7 +10,7 @@ body {
   padding: 0;
   font-family: sans-serif;
   font-weight: 100;
-  background: #444;
+  background: #000;
   color: #fff;
   line-height: 1.4;
 }
@@ -43,7 +43,7 @@ button:disabled {
 }
 
 svg {
-  background: #111;
+  background: #000;
   display: block;
   cursor: default;
   position: fixed;
@@ -210,15 +210,22 @@ svg {
   visibility: hidden;
   pointer-events: none;
   stroke-width: 0;
+  stroke: #999;
   fill: #999;
 }
 
-.root.node .dot {
+.retainable.node .dot {
   visibility: visible;
+}
+
+.root.node .dot {
+  fill: transparent;
+  fill: #0f0;
 }
 
 .marked.node .dot {
   fill: #6f6;
+  stroke-width: 0;
 }
 
 // -------------------
@@ -283,7 +290,7 @@ svg.panning .node {
   border-radius: 50px 15px 15px 50px;
   background: rgba(0,0,0,0.7);
   input {
-    border: 3px solid #111;
+    border: 3px solid #000;
     border-radius: 8px;
     background: #fff;
     box-shadow: .1em .1em .4em rgba(0,0,0,0.5) inset;

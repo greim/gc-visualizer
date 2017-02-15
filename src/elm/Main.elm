@@ -1,3 +1,6 @@
+-- import ----------------------------------------------------------------------
+
+--import Debug exposing (log)
 import Html exposing (Html, div, button, br, span)
 import Html.Attributes exposing (disabled)
 import Html.Events exposing (..)
@@ -15,7 +18,8 @@ import V
 import History exposing (History)
 import Dom
 import Keyboard
---import Debug exposing (log)
+
+-- main ------------------------------------------------------------------------
 
 main =
   Html.program
@@ -25,19 +29,19 @@ main =
     , subscriptions = subscriptions
     }
 
-
-
--- MODEL ############################################################################
+-- model -----------------------------------------------------------------------
 
 type Mode = Move | Add | Delete | Label | Pan
 
-type Mrk = Unmarked | Marked | None
+type Marking = Unmarked | Marked | None
+
+type Designation = Reachable | Root | Normal
 
 type alias Node =
   { x : Int
   , y : Int
-  , isRoot : Bool
-  , mark : Mrk
+  , designation : Designation
+  , mark : Marking
   , label : String
   }
 
@@ -72,17 +76,27 @@ init =
     movingNode = Nothing
     labelingNode = Nothing
     showCode = False
-    codeSize = 20
-    code = typeCodeComment
+    codeSize = 25
+    code = defaultCode
     panning = Nothing
-    model = Model history viewport mode pendingEdge movingNode labelingNode showCode codeSize code panning
+    -----------------------------
+    model = Model
+      history
+      viewport
+      mode
+      pendingEdge
+      movingNode
+      labelingNode
+      showCode
+      codeSize
+      code
+      panning
+    -----------------------------
     cmd = Task.perform Resize Window.size
   in
     (model, cmd)
 
-
-
--- UPDATE ###########################################################################
+-- update ----------------------------------------------------------------------
 
 type Msg
   = StartOnNothing Int Int
@@ -129,7 +143,7 @@ update msg model =
 
       StartOnNothing x y ->
         let
-          node = Node x y False None ""
+          node = Node x y Normal None ""
           (id, newNodes) = Graph.addNode node modelNodes
           pendingEdge = Just (PendingEdge id x y)
           newHistory = History.push "start-nothing" newNodes model.history
@@ -139,7 +153,7 @@ update msg model =
 
       EndOnNothing x y ->
         let
-          node = Node x y False None ""
+          node = Node x y Normal None ""
           (id, intermediateNodes) = Graph.addNode node modelNodes
           finalNodes = addPending id model.pendingEdge intermediateNodes
           newHistory = case model.pendingEdge of
@@ -157,7 +171,11 @@ update msg model =
             case isMeta of
               True ->
                 let
-                  newNode = { node | isRoot = not node.isRoot }
+                  newDesignation = case node.designation of
+                    Reachable -> Root
+                    Root -> Normal
+                    Normal -> Reachable
+                  newNode = { node | designation = newDesignation }
                   newNodes = Graph.updateNode from newNode modelNodes
                   pendingEdge = Just (PendingEdge from x y)
                   newHistory = History.push "start-node" newNodes model.history
@@ -302,7 +320,7 @@ update msg model =
       Clear ->
         let
           newHistory = History.push "clear" Graph.empty model.history
-          newModel = { model | history = newHistory, code = typeCodeComment }
+          newModel = { model | history = newHistory, code = defaultCode }
         in
           (newModel, Cmd.none)
 
@@ -317,7 +335,7 @@ update msg model =
       Find ->
         let
           ids = Graph.toNodeList modelNodes
-            |> List.filter (\(id, node) -> node.isRoot)
+            |> List.filter (\(id, node) -> isRetainable node)
             |> List.map (\(id, node) -> Graph.findConnected (\from ref to -> ref == Strong) id modelNodes)
             |> List.map (\set -> Set.toList set)
             |> List.concat
@@ -464,7 +482,6 @@ update msg model =
           Nothing ->
             (model, Cmd.none)
 
-
 addPending : Int -> Maybe PendingEdge -> Graph Node Ref -> Graph Node Ref
 addPending to pendingEdge graph =
   case pendingEdge of
@@ -479,9 +496,7 @@ delay time msg =
     |> Task.andThen (always (Task.succeed msg))
     |> Task.perform identity
 
-
-
--- SUBSCRIPTIONS ####################################################################
+-- subscriptions ---------------------------------------------------------------
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -490,9 +505,7 @@ subscriptions model =
     , Window.resizes Resize
     ]
 
-
-
--- VIEW #############################################################################
+-- view ------------------------------------------------------------------------
 
 view : Model -> Html Msg
 view model =
@@ -575,9 +588,9 @@ view model =
         ]
       ]
 
-typeCodeComment : String
-typeCodeComment =
-  "// write code here\n"
+defaultCode : String
+defaultCode =
+  "/* JavaScript code */\n\n<-- point of execution"
 
 makeViewBox : Int -> Int -> Int -> Int -> String
 makeViewBox x y width height =
@@ -660,13 +673,26 @@ arrows mode graph =
   Graph.toEdgeList graph
     |> List.map (\edge -> createArrow edge mode graph)
 
+isRetainable : Node -> Bool
+isRetainable node =
+  case node.designation of
+    Normal -> False
+    Reachable -> True
+    Root -> True
+
+isRoot : Node -> Bool
+isRoot node =
+  node.designation == Root
+
 createNode : Int -> Mode -> Node -> (String, Svg Msg)
 createNode id mode node =
   let
+    isRet = isRetainable node
+    isRoo = isRoot node
     nodeFn = case node.mark of
-      Marked -> V.markedNode node.isRoot
-      Unmarked -> V.unmarkedNode node.isRoot
-      None -> V.node node.isRoot
+      Marked -> V.markedNode isRet isRoo
+      Unmarked -> V.unmarkedNode isRet isRoo
+      None -> V.node isRet isRoo
   in
     ( toString id
     , nodeFn node.x node.y node.label

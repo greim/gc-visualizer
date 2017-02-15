@@ -2,7 +2,7 @@ module V exposing (arrow, pendingArrow, markedArrow, unmarkedArrow, node, pendin
 
 import Svg exposing (Svg, Attribute)
 import Svg.Attributes as Attr
-import Debug exposing (log)
+--import Debug exposing (log)
 
 --------------------------------------------------------------------------------
 
@@ -86,22 +86,22 @@ radConvert =
 
 pendingNode : Int -> Int -> Svg msg
 pendingNode cx cy =
-  rawNode False cx cy "pending node" "" []
+  rawNode False False cx cy "pending node" "" []
 
-node : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-node isRoot cx cy label attrs =
-  rawNode isRoot cx cy "node" label attrs
+node : Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+node isRetainable isRoot cx cy label attrs =
+  rawNode isRetainable isRoot cx cy "node" label attrs
 
-markedNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-markedNode isRoot cx cy label attrs =
-  rawNode isRoot cx cy "marked node" label attrs
+markedNode : Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+markedNode isRetainable isRoot cx cy label attrs =
+  rawNode isRetainable isRoot cx cy "marked node" label attrs
 
-unmarkedNode : Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-unmarkedNode isRoot cx cy label attrs =
-  rawNode isRoot cx cy "unmarked node" label attrs
+unmarkedNode : Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+unmarkedNode isRetainable isRoot cx cy label attrs =
+  rawNode isRetainable isRoot cx cy "unmarked node" label attrs
 
-rawNode : Bool -> Int -> Int -> String -> String -> List (Attribute msg) -> Svg msg
-rawNode isRoot x y cls label attrs =
+rawNode : Bool -> Bool -> Int -> Int -> String -> String -> List (Attribute msg) -> Svg msg
+rawNode isRetainable isRoot x y cls label attrs =
   let
     xs = toString x
     ys = toString y
@@ -111,7 +111,9 @@ rawNode isRoot x y cls label attrs =
     cya = Attr.cy ys
     rOuter = Attr.r "20"
     rInner = Attr.r "9"
-    class = Attr.class (if isRoot then "root " ++ cls else cls)
+    cls2 = if isRoot then "root " ++ cls else cls
+    cls3 = if isRetainable then "retainable " ++ cls2 else cls2
+    class = Attr.class cls3
     circ = Svg.circle [ cxa, cya, rOuter ] []
     dot = Svg.circle [ cxa, cya, rInner, Attr.style "pointer-events:none", Attr.class "dot" ] []
   in
