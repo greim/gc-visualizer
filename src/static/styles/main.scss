@@ -231,17 +231,17 @@ svg {
 // -------------------
 
 .arrow {
-  opacity: .25;
+  opacity: .35;
 }
 
 .arrow line {
-  stroke: #eee;
+  stroke: #fff;
   stroke-width: 7px;
   transition: stroke 250ms linear;
 }
 
 .arrow.weak line {
-  stroke-dasharray: 12, 10;
+  stroke-dasharray: 9, 9;
 }
 
 .arrow .arrow-head line {
