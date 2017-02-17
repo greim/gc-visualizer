@@ -13,11 +13,9 @@ empty : Graph a b
 empty =
   Graph (Dict.empty) (Dict.empty) 1
 
-
 singleton : a -> Graph a b
 singleton a =
   Graph (Dict.singleton 0 a) (Dict.empty) 1
-
 
 addNode : a -> Graph a b -> (Int, Graph a b)
 addNode a graph =
@@ -27,7 +25,6 @@ addNode a graph =
     newGraph = { graph | nodes = newNodes, nextId = id + 1 }
   in
     (id, newGraph)
-
 
 updateNode : Int -> a -> Graph a b -> Graph a b
 updateNode id node graph =
@@ -40,7 +37,6 @@ updateNode id node graph =
     Nothing ->
       graph
 
-
 updateNodeFn : (a -> a) -> Int -> Graph a b -> Graph a b
 updateNodeFn update id graph =
   case getNode id graph of
@@ -49,11 +45,9 @@ updateNodeFn update id graph =
     Nothing ->
       graph
 
-
 getNode : Int -> Graph a b -> Maybe a
 getNode id graph =
   Dict.get id graph.nodes
-
 
 removeNode : Int -> Graph a b -> Graph a b
 removeNode id graph =
@@ -66,11 +60,9 @@ removeNode id graph =
   in
     { graph | nodes = newNodes, edges = newEdges }
 
-
 toNodeList : Graph a b -> List (Int, a)
 toNodeList graph =
   Dict.toList graph.nodes
-
 
 map : (a -> a) -> Graph a b -> Graph a b
 map mapFun graph =
@@ -80,7 +72,6 @@ map mapFun graph =
   in
     { graph | nodes = newNodes }
 
-
 toPairs : Int -> Dict Int b -> List (Int, b, Int)
 toPairs from tos =
   let
@@ -89,7 +80,6 @@ toPairs from tos =
   in
     List.map mapFn tosList
 
-
 toEdgeList : Graph a b -> List (Int, b, Int)
 toEdgeList graph =
   let
@@ -97,7 +87,6 @@ toEdgeList graph =
     foldFn = (\(from, tos) pairs -> List.append pairs (toPairs from tos))
   in
     List.foldl foldFn [] rawList
-
 
 addEdge : Int -> b -> Int -> Graph a b -> Graph a b
 addEdge from val to graph =
@@ -112,7 +101,6 @@ addEdge from val to graph =
         { graph | edges = newEdges }
     _ ->
       graph
-
 
 updateEdge : Int -> b -> Int -> Graph a b -> Graph a b
 updateEdge from b to graph =
@@ -131,7 +119,6 @@ updateEdge from b to graph =
     Nothing ->
       graph
 
-
 getEdge : Int -> Int -> Graph a b -> Maybe b
 getEdge from to graph =
   case Dict.get from graph.edges of
@@ -139,7 +126,6 @@ getEdge from to graph =
       Dict.get to tos
     Nothing ->
       Nothing
-
 
 removeEdge : Int -> Int -> Graph a b -> Graph a b
 removeEdge from to graph =
@@ -153,7 +139,6 @@ removeEdge from to graph =
     Nothing ->
       graph
 
-
 findConnected : (Int -> b -> Int -> Bool) -> Int -> Graph a b -> Set Int
 findConnected filterFn id graph =
   let
@@ -161,7 +146,6 @@ findConnected filterFn id graph =
     results = Set.singleton id
   in
     findConnectedUgly filterFn queue results graph
-
 
 findConnectedUgly : (Int -> b -> Int -> Bool) -> Queue Int -> Set Int -> Graph a b -> Set Int
 findConnectedUgly filterFn queue results graph =
