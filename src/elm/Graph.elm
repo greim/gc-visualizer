@@ -1,4 +1,23 @@
-module Graph exposing (Graph, empty, singleton, addNode, updateNode, updateNodeFn, getNode, removeNode, toNodeList, toEdgeList, addEdge, removeEdge, findConnected, map, updateEdge, getEdge)
+module Graph exposing
+  ( Graph
+  , empty
+  , singleton
+  , addNode
+  , updateNode
+  , updateNodeFn
+  , getNode
+  , removeNode
+  , toNodeList
+  , toEdgeList
+  , addEdge
+  , removeEdge
+  , findConnected
+  , map
+  , updateEdge
+  , getEdge
+  , from
+  )
+
 import Dict exposing (Dict)
 import Set exposing (Set)
 import Queue exposing (Queue)
@@ -8,6 +27,39 @@ type alias Graph a b =
   , edges : Dict Int (Dict Int b)
   , nextId : Int
   }
+
+from : List (Int, a) -> List (Int, b, Int) -> Graph a b
+from nodes edges =
+  let
+    withNodes = loadNodes nodes empty
+    withEdges = loadEdges edges withNodes
+  in
+    withEdges
+
+loadNodes : List (Int, a) -> Graph a b -> Graph a b
+loadNodes nodes graph =
+  case nodes of
+    (id, a) :: rest ->
+      let
+        newNodes = Dict.insert id a graph.nodes
+        newGraph = { graph | nodes = newNodes }
+      in
+        loadNodes rest newGraph
+    [] ->
+      let
+        allIds = Dict.keys graph.nodes
+        maxId = List.foldl (\a b -> max a b) 0 allIds
+        nextId = maxId + 1
+      in
+        { graph | nextId = nextId }
+
+loadEdges : List (Int, b, Int) -> Graph a b -> Graph a b
+loadEdges edges graph =
+  case edges of
+    (fromId, b, toId) :: rest ->
+      loadEdges rest (addEdge fromId b toId graph)
+    [] ->
+      graph
 
 empty : Graph a b
 empty =

@@ -18,6 +18,8 @@ import V
 import History exposing (History)
 import Dom
 import Keyboard
+import Node exposing (Node, MemGraph, Marking(..), Designation(..), Ref(..), logGraph)
+import Bulk
 
 -- main ------------------------------------------------------------------------
 
@@ -34,29 +36,14 @@ main =
 
 type Mode = Move | Add | Delete | Label | Pan | Select
 
-type Marking = Unmarked | Marked | None
-
-type Designation = Reachable | Root | Normal
-
-type alias Node =
-  { x : Int
-  , y : Int
-  , designation : Designation
-  , isSelected : Bool
-  , mark : Marking
-  , label : String
-  }
-
 type alias PendingEdge =
   { from : Int
   , x : Int
   , y : Int
   }
 
-type Ref = Strong | Weak
-
 type alias Model =
-  { history : History (Graph Node Ref)
+  { history : History (MemGraph)
   , viewport : Window.Size
   , mode : Mode
   , pendingEdge : Maybe PendingEdge
@@ -136,6 +123,7 @@ type Msg
   | EndPanning
   | ToggleRef Int Int
   | ToggleSelection Int
+  | BigGraph
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -229,6 +217,7 @@ update msg model =
 
       ChangeMode mode ->
         let
+          x = logGraph modelNodes
           newLabelingNode = Nothing
           newModel = { model | mode = mode, labelingNode = newLabelingNode }
         in
@@ -499,7 +488,15 @@ update msg model =
             in
               (newModel, Cmd.none)
 
-addPending : Int -> Maybe PendingEdge -> Graph Node Ref -> Graph Node Ref
+      BigGraph ->
+        let
+          newHistory = History.push "big-example" Bulk.bigMemGraph model.history
+          newModel = { model | history = newHistory }
+        in
+          (newModel, Cmd.none)
+
+
+addPending : Int -> Maybe PendingEdge -> MemGraph -> MemGraph
 addPending to pendingEdge graph =
   case pendingEdge of
     Just pendingEdge ->
@@ -593,6 +590,7 @@ view model =
         , button [onClick SweepStart] [text "Sweep"]
         , button [onClick Done] [text "Done"]
         , button [onClick Clear] [text "Clear"]
+        , button [onClick BigGraph] [text "Big"]
         ]
       , div
         [ id "info"
@@ -615,7 +613,7 @@ makeViewBox : Int -> Int -> Int -> Int -> String
 makeViewBox x y width height =
   (toString x) ++ " " ++ (toString y) ++ " " ++ (toString width) ++ " " ++ (toString height)
 
-labelInput : Maybe Int -> Graph Node Ref -> Html Msg
+labelInput : Maybe Int -> MemGraph -> Html Msg
 labelInput maybeNodeId graph =
   case maybeNodeId of
     Just nodeId ->
@@ -647,7 +645,7 @@ icon : String -> Html Msg
 icon ico =
   Html.i [class ("fa fa-" ++ ico)] []
 
-pendingInfo : Maybe PendingEdge -> Graph Node Ref -> Maybe (PendingEdge, Node)
+pendingInfo : Maybe PendingEdge -> MemGraph -> Maybe (PendingEdge, Node)
 pendingInfo maybePendingEdge graph =
   case maybePendingEdge of
     Just pendingEdge ->
@@ -682,12 +680,12 @@ pendingNode pendingInfo =
     Nothing ->
       g [] []
 
-nodes : Mode -> Graph Node Ref -> List (String, Svg Msg)
+nodes : Mode -> MemGraph -> List (String, Svg Msg)
 nodes mode graph =
   Graph.toNodeList graph
     |> List.map (\(id, node) -> createNode id mode node)
 
-arrows : Mode -> Graph Node Ref -> List (String, Svg Msg)
+arrows : Mode -> MemGraph -> List (String, Svg Msg)
 arrows mode graph =
   Graph.toEdgeList graph
     |> List.map (\edge -> createArrow edge mode graph)
@@ -716,13 +714,13 @@ createNode id mode node =
   in
     ( toString id
     , nodeFn node.x node.y node.label
-        [ nodeMouseDown mode (id, node)
-        , nodeMouseMove mode (id, node)
-        , nodeMouseUp mode (id, node)
-        ]
+      [ nodeMouseDown mode (id, node)
+      , nodeMouseMove mode (id, node)
+      , nodeMouseUp mode (id, node)
+      ]
     )
 
-createArrow : (Int, Ref, Int) -> Mode -> Graph Node Ref -> (String, Svg Msg)
+createArrow : (Int, Ref, Int) -> Mode -> MemGraph -> (String, Svg Msg)
 createArrow (fromId, ref, toId) mode graph =
   let
     from = Graph.getNode fromId graph
