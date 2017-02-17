@@ -86,22 +86,22 @@ radConvert =
 
 pendingNode : Int -> Int -> Svg msg
 pendingNode cx cy =
-  rawNode False False cx cy "pending node" "" []
+  rawNode False False False cx cy "pending node" "" []
 
-node : Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-node isRetainable isRoot cx cy label attrs =
-  rawNode isRetainable isRoot cx cy "node" label attrs
+node : Bool -> Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+node isRetainable isRoot isSelected cx cy label attrs =
+  rawNode isRetainable isRoot isSelected cx cy "node" label attrs
 
-markedNode : Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-markedNode isRetainable isRoot cx cy label attrs =
-  rawNode isRetainable isRoot cx cy "marked node" label attrs
+markedNode : Bool -> Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+markedNode isRetainable isRoot isSelected cx cy label attrs =
+  rawNode isRetainable isRoot isSelected cx cy "marked node" label attrs
 
-unmarkedNode : Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-unmarkedNode isRetainable isRoot cx cy label attrs =
-  rawNode isRetainable isRoot cx cy "unmarked node" label attrs
+unmarkedNode : Bool -> Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+unmarkedNode isRetainable isRoot isSelected cx cy label attrs =
+  rawNode isRetainable isRoot isSelected cx cy "unmarked node" label attrs
 
-rawNode : Bool -> Bool -> Int -> Int -> String -> String -> List (Attribute msg) -> Svg msg
-rawNode isRetainable isRoot x y cls label attrs =
+rawNode : Bool -> Bool -> Bool -> Int -> Int -> String -> String -> List (Attribute msg) -> Svg msg
+rawNode isRetainable isRoot isSelected x y cls label attrs =
   let
     xs = toString x
     ys = toString y
@@ -114,11 +114,22 @@ rawNode isRetainable isRoot x y cls label attrs =
     cls2 = if isRoot then "root " ++ cls else cls
     cls3 = if isRetainable then "retainable " ++ cls2 else cls2
     class = Attr.class cls3
-    circ = Svg.circle [ cxa, cya, rOuter ] []
+    circ = Svg.circle [ cxa, cya, rOuter, Attr.class "ring" ] []
     dot = Svg.circle [ cxa, cya, rInner, Attr.style "pointer-events:none", Attr.class "dot" ] []
+    sel = if isSelected then nodeSelection x y else Svg.g [] []
   in
     if label == "" then
-      Svg.g (class :: attrs) [ circ, dot ]
+      Svg.g (class :: attrs) [ sel, circ, dot ]
     else
       let text = Svg.text_ [xa, ya] [ Svg.text label ]
-      in Svg.g (class :: attrs) [ circ, dot, text ]
+      in Svg.g (class :: attrs) [ sel, circ, dot, text ]
+
+nodeSelection : Int -> Int -> Svg msg
+nodeSelection cx cy =
+  Svg.circle
+    [ Attr.cx (toString cx)
+    , Attr.cy (toString cy)
+    , Attr.r "35"
+    , Attr.class "selection"
+    , Attr.style "pointer-events:none"
+    ] []

@@ -176,8 +176,8 @@ svg {
 
 // -------------------
 
-.node circle {
-  fill: #222;
+.node circle.ring {
+  fill: #000;
   stroke: #eee;
   stroke-width: 7px;
   transition: stroke 250ms linear;
@@ -190,23 +190,25 @@ svg {
   text-shadow: 3px 3px 3px #000, -3px -3px 3px #000, -3px 3px 3px #000, 3px -3px 3px #000;
 }
 
-.pending.node circle {
+.pending.node circle.ring {
   stroke: #555;
 }
 
-.marked.node circle {
+.marked.node circle.ring {
   stroke: #555;
 }
 
-.marked.node .dot {
-  stroke: #6f6;
+.marked.node circle.dot {
+  stroke: #0f0;
+  fill: #0f0;
+  stroke-width: 0;
 }
 
-.unmarked.node circle {
-  stroke: #6f6;
+.unmarked.node circle.ring {
+  stroke: #0f0;
 }
 
-.node .dot {
+.node circle.dot {
   visibility: hidden;
   pointer-events: none;
   stroke-width: 0;
@@ -214,18 +216,24 @@ svg {
   fill: #999;
 }
 
-.retainable.node .dot {
+.retainable.node circle.dot {
   visibility: visible;
 }
 
-.root.node .dot {
+.root.node circle.dot {
   fill: transparent;
   fill: #0f0;
 }
 
-.marked.node .dot {
-  fill: #6f6;
-  stroke-width: 0;
+circle.selection {
+  fill: transparent;
+  stroke: #aaa;
+  stroke-width: 3px;
+  stroke-dasharray: 8, 9;
+}
+
+.marked circle.selection {
+  visibility: hidden;
 }
 
 // -------------------
@@ -258,7 +266,7 @@ svg {
 }
 
 .unmarked.arrow line {
-  stroke: #6f6;
+  stroke: #0f0;
 }
 
 // -------------------

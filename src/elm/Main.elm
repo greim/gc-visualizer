@@ -21,6 +21,7 @@ import Keyboard
 
 -- main ------------------------------------------------------------------------
 
+main : Program Never Model Msg
 main =
   Html.program
     { init = init
@@ -31,7 +32,7 @@ main =
 
 -- model -----------------------------------------------------------------------
 
-type Mode = Move | Add | Delete | Label | Pan
+type Mode = Move | Add | Delete | Label | Pan | Select
 
 type Marking = Unmarked | Marked | None
 
@@ -41,6 +42,7 @@ type alias Node =
   { x : Int
   , y : Int
   , designation : Designation
+  , isSelected : Bool
   , mark : Marking
   , label : String
   }
@@ -133,6 +135,7 @@ type Msg
   | TrackPanning Int Int
   | EndPanning
   | ToggleRef Int Int
+  | ToggleSelection Int
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -143,7 +146,7 @@ update msg model =
 
       StartOnNothing x y ->
         let
-          node = Node x y Normal None ""
+          node = Node x y Normal False None ""
           (id, newNodes) = Graph.addNode node modelNodes
           pendingEdge = Just (PendingEdge id x y)
           newHistory = History.push "start-nothing" newNodes model.history
@@ -153,7 +156,7 @@ update msg model =
 
       EndOnNothing x y ->
         let
-          node = Node x y Normal None ""
+          node = Node x y Normal False None ""
           (id, intermediateNodes) = Graph.addNode node modelNodes
           finalNodes = addPending id model.pendingEdge intermediateNodes
           newHistory = case model.pendingEdge of
@@ -482,6 +485,20 @@ update msg model =
           Nothing ->
             (model, Cmd.none)
 
+      ToggleSelection nodeId ->
+        case Graph.getNode nodeId modelNodes of
+          Nothing ->
+            (model, Cmd.none)
+          Just node ->
+            let
+              isSelected = not node.isSelected
+              toggledNode = { node | isSelected = isSelected }
+              newNodes = Graph.updateNode nodeId toggledNode modelNodes
+              newHistory = History.push "toggle-node-selection" newNodes model.history
+              newModel = { model | history = newHistory }
+            in
+              (newModel, Cmd.none)
+
 addPending : Int -> Maybe PendingEdge -> Graph Node Ref -> Graph Node Ref
 addPending to pendingEdge graph =
   case pendingEdge of
@@ -527,6 +544,7 @@ view model =
       Delete -> "deleting"
       Label -> "labeling"
       Pan -> "panning"
+      Select -> "selecting"
   in
     div []
       [ svg
@@ -560,6 +578,7 @@ view model =
         , button [onClick (ChangeMode Move), disabled (model.mode == Move)] [icon "arrows"]
         , button [onClick (ChangeMode Label), disabled (model.mode == Label)] [icon "tag"]
         , button [onClick (ChangeMode Pan), disabled (model.mode == Pan)] [icon "arrows-alt"]
+        , button [onClick (ChangeMode Select), disabled (model.mode == Select)] [icon "crosshairs"]
         , button [onClick (ChangeMode Delete), disabled (model.mode == Delete)] [icon "remove"]
         , span [class "undo-redo"]
           [ button [onClick Undo, disabled (not <| History.hasItems model.history)] [icon "undo"]
@@ -689,10 +708,11 @@ createNode id mode node =
   let
     isRet = isRetainable node
     isRoo = isRoot node
+    isSel = node.isSelected
     nodeFn = case node.mark of
-      Marked -> V.markedNode isRet isRoo
-      Unmarked -> V.unmarkedNode isRet isRoo
-      None -> V.node isRet isRoo
+      Marked -> V.markedNode isRet isRoo isSel
+      Unmarked -> V.unmarkedNode isRet isRoo isSel
+      None -> V.node isRet isRoo isSel
   in
     ( toString id
     , nodeFn node.x node.y node.label
@@ -758,6 +778,7 @@ backdropMouseDown mode =
     Delete -> on "mousedown" (Json.succeed NoOp)
     Label -> on "mousedown" (Json.succeed NoOp)
     Pan -> on "mousedown" (getXY (\x y -> StartPanning x y))
+    Select -> on "mousedown" (Json.succeed NoOp)
 
 backdropMouseMove : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseMove mode pEdge =
@@ -776,6 +797,8 @@ backdropMouseMove mode pEdge =
       on "mousemove" (Json.succeed NoOp)
     Pan ->
       on "mousemove" (getXY (\x y -> TrackPanning x y))
+    Select ->
+      on "mousemove" (Json.succeed NoOp)
 
 backdropMouseUp : Mode -> Maybe PendingEdge -> Attribute Msg
 backdropMouseUp mode pEdge =
@@ -785,6 +808,7 @@ backdropMouseUp mode pEdge =
     Delete -> on "mouseup" (Json.succeed NoOp)
     Label -> on "mouseup" (Json.succeed EndLabeling)
     Pan -> on "mouseup" (Json.succeed EndPanning)
+    Select -> on "mouseup" (Json.succeed NoOp)
 
 nodeMouseDown : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseDown mode (nodeId, node) =
@@ -807,6 +831,8 @@ nodeMouseDown mode (nodeId, node) =
       on "mousedown" (Json.succeed (StartLabeling nodeId))
     Pan ->
       on "mousedown" (Json.succeed NoOp)
+    Select ->
+      on "mousedown" (Json.succeed (ToggleSelection nodeId))
 
 nodeMouseMove : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseMove mode (nodeId, node) =
@@ -816,6 +842,7 @@ nodeMouseMove mode (nodeId, node) =
     Delete -> on "mousemove" (Json.succeed NoOp)
     Label -> on "mousemove" (Json.succeed NoOp)
     Pan -> on "mousemove" (Json.succeed NoOp)
+    Select -> on "mousemove" (Json.succeed NoOp)
 
 nodeMouseUp : Mode -> (Int, Node) -> Attribute Msg
 nodeMouseUp mode (nodeId, node) =
@@ -825,6 +852,7 @@ nodeMouseUp mode (nodeId, node) =
     Delete -> on "mouseup" (Json.succeed NoOp)
     Label -> on "mouseup" (Json.succeed NoOp)
     Pan -> on "mouseup" (Json.succeed NoOp)
+    Select -> on "mouseup" (Json.succeed NoOp)
 
 arrowMouseDown : Mode -> Int -> Int -> Attribute Msg
 arrowMouseDown mode fromId toId =
@@ -834,3 +862,4 @@ arrowMouseDown mode fromId toId =
     Delete -> onMouseDown (RemoveEdge fromId toId)
     Label -> on "mousedown" (Json.succeed NoOp)
     Pan -> on "mousedown" (Json.succeed NoOp)
+    Select -> on "mousedown" (Json.succeed NoOp)
