@@ -350,7 +350,7 @@ update msg model =
       SweepStart ->
         let
           ids = Graph.toNodeList modelNodes
-            |> List.filter (\(id, node) -> node.mark /= Unmarked)
+            |> List.filter (\(id, node) -> node.mark == Marked)
             |> List.map (\(id, node) -> id)
         in
           (model, Task.perform Sweep (Task.succeed ids))
@@ -494,7 +494,6 @@ update msg model =
           newModel = { model | history = newHistory }
         in
           (newModel, Cmd.none)
-
 
 addPending : Int -> Maybe PendingEdge -> MemGraph -> MemGraph
 addPending to pendingEdge graph =
