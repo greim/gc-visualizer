@@ -100,18 +100,18 @@ svg {
   z-index: 1;
   position: fixed;
   border-radius: 0 0 5px 0;
-  width: 31vw;
+  width: 400px;
   background: rgba(215,215,215,0.95);
   top: 15px;
   bottom: 15px;
-  transition: left 500ms ease-in-out, opacity 500ms ease-in-out;
+  transition: left 250ms ease-in-out, opacity 250ms ease-in-out;
   &.shown {
     opacity: 1;
     left: 0vw;
   }
   &.not-shown {
     opacity: .3;
-    left: -31vw;
+    left: -400px;
   }
   textarea {
     display: block;
@@ -174,31 +174,47 @@ svg {
   }
 }
 
-#slide-buttons {
+#slide-backward,
+#slide-forward {
+  cursor: pointer;
   position: fixed;
-  bottom: 17px;
-  right: 17px;
+  bottom: 0;
+  width: 100px;
+  height: 100px;
+  z-index: 1;
+  &:hover {
+    background: rgba(125,125,125,0.1);
+  }
+}
+#slide-forward {
+  right: 0;
+  border-radius: 20px 0 0 0;
+}
+#slide-backward {
+  left: 0;
+  border-radius: 0 20px 0 0;
 }
 
 #slide {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
   background: #fff;
+  bottom: 0;
+  box-shadow: 0 0 200px rgba(0,0,0,0.2) inset;
   color: #000;
-  z-index: 1;
-  font-family: "Avenir Next";
-  padding: 20px 40px 20px 80px;
-  font-size: 37px;
-  font-weight: 500;
-  line-height: 1.5;
+  cursor: default;
   display: flex;
   flex-direction: column;
+  font-family: "Avenir Next";
+  font-size: 37px;
+  font-weight: 500;
   justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 0 200px rgba(0,0,0,0.2) inset;
+  left: 0;
+  line-height: 1.5;
+  padding: 20px 80px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1;
+  user-select: none;
   h1, h2, h3, h4, h5, h6, p, ol, ul {
     margin-top: 0;
     margin-bottom: 0;
@@ -257,7 +273,7 @@ svg {
 }
 
 .marked.node circle.ring {
-  stroke: #555;
+  stroke: #444;
 }
 
 .marked.node circle.dot {

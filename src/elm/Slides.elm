@@ -1,55 +1,63 @@
 -- module ----------------------------------------------------------------------
 
-module Slides exposing (getSlide, slideNames)
+module Slides exposing
+  ( Slide(..)
+  , getSlide
+  , length
+  )
 
 -- import ----------------------------------------------------------------------
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Markdown
+import Bulk
+import Node
+
+-- types -----------------------------------------------------------------------
+
+type Slide msg
+  = Content (Html msg)
+  | DemoTime
 
 -- functions/values ------------------------------------------------------------
 
-slides : List (Html msg)
+slide : String -> String -> Slide msg
+slide cls md =
+  Content (Markdown.toHtml [class cls] md)
+
+slides : List (Slide msg)
 slides =
   [
-  Markdown.toHtml [class "center"]
-  """
+  slide "center" """
 # *~ Nothing Dot Foo ~*<hr>Garbage Collection<br><big>Visualized</big>
 """
-  , Markdown.toHtml []
-  """
+  , slide "" """
 # What is Garbage Collection?
 
-Garbage collection is how JavaScript gets rid of stuff you're not using. The way it knows whether to get rid of something is by using an algorithm.
+Garbage collection is how JavaScript gets rid of stuff you're not using. It knows whether to get rid of something is because it uses a trusty algorithm.
 """
-  , Markdown.toHtml []
-  """
-# The Algorithm...
+  , slide "" """
+# The Incomplete Algorithm
 
 A value is retained in memory if it's reachable from another value that's retained in memory.
-
-But what do we mean by **reachable**?
 """
-  , Markdown.toHtml []
-  """
-# Variable Environments
+  , DemoTime
+  , slide "" """
+# Variable Environments:
 
- * Every time a function executes, one is created.
- * Main program execution also creates a global one.
- * They contain variables local to that function call.
+ * They're objects that hold your variables.
+ * They're created every time a function runs.
  * They're invisible; you can't get a reference to one.
- * Except global one; referenced as `window` or `global`.
- * They affect garbage collection.
+ * They're significant WRT garbage collection.
 """
-  , Markdown.toHtml []
-  """
+  , DemoTime
+  , slide "" """
 # The Complete Algorithm.
 
 A value is retained in memory if it's reachable from another value that's retained in memory, or if it's reachable from a garbage collection **root**.
 """
-  , Markdown.toHtml []
-  """
+  , slide "" """
 # Mark & Sweep
 
  1. Your program pauses.
@@ -58,26 +66,23 @@ A value is retained in memory if it's reachable from another value that's retain
  4. Sweeps away anything still marked.
  5. Your program resumes.
 """
-  , Markdown.toHtml []
-  """
+  , slide "" """
 **Disclaimer:** Real-world garbage collectors are the topic of academic research and high-end VM optimization. The overall approach is similar to what's described here, but different strategies are explored for doing it incrementally and/or in a separate thread in order minimize pauses and keep the program running as smoothly as possible.
+"""
+  , slide "center" """
+# <big>#!/its/over</big>
 """
   ]
 
-slideNames : List (String, Int)
-slideNames =
-  let
-    len = List.length slides
-    range = List.range 0 (len - 1)
-    names = List.map (\idx -> (toString (idx + 1), idx)) range
-  in
-    names
+length : Int
+length =
+  List.length slides
 
-getSlide : Int -> Maybe (Html msg)
+getSlide : Int -> Maybe (Slide msg)
 getSlide idx =
   getSlide_ idx slides
 
-getSlide_ : Int -> List (Html msg) -> Maybe (Html msg)
+getSlide_ : Int -> List (Slide msg) -> Maybe (Slide msg)
 getSlide_ idx slides =
   case slides of
     slide :: rest ->

@@ -20,7 +20,7 @@ import Dom
 import Keyboard
 import Node exposing (Node, MemGraph, Marking(..), Designation(..), Ref(..), logGraph)
 import Bulk
-import Slides
+import Slides exposing ( Slide(..), getSlide, length)
 
 -- main ------------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ type alias Model =
   , codeSize : Int
   , code : String
   , panning : Maybe ((Int, Int), (Int, Int))
-  , slide : Maybe Int
+  , slide : Int
   }
 
 type Mode = Move | Add | Delete | Label | Pan | Select
@@ -70,7 +70,7 @@ init =
     codeSize = 25
     code = defaultCode
     panning = Nothing
-    slide = Nothing
+    slide = 0
     -----------------------------
     model = Model
       history
@@ -128,8 +128,8 @@ type Msg
   | ToggleRef Int Int
   | ToggleSelection Int
   | BigGraph
-  | ShowSlide Int
-  | HideSlide
+  | SlideForward
+  | SlideBackward
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -501,15 +501,18 @@ update msg model =
         in
           (newModel, Cmd.none)
 
-      ShowSlide idx ->
+      SlideForward ->
         let
-          newModel = { model | slide = Just idx }
+          maxIdx = Slides.length - 1
+          nextSlide = Basics.min maxIdx (model.slide + 1)
+          newModel = { model | slide = nextSlide }
         in
           (newModel, Cmd.none)
 
-      HideSlide ->
+      SlideBackward ->
         let
-          newModel = { model | slide = Nothing }
+          prevSlide = Basics.max 0 (model.slide - 1)
+          newModel = { model | slide = prevSlide }
         in
           (newModel, Cmd.none)
 
@@ -559,11 +562,9 @@ view model =
       Label -> "labeling"
       Pan -> "panning"
       Select -> "selecting"
-    shownSlide = case model.slide of
+    shownSlide = case Slides.getSlide model.slide of
       Nothing -> div [] []
-      Just idx -> case Slides.getSlide idx of
-        Nothing -> div [] []
-        Just slide -> wrapSlide slide
+      Just slide -> wrapSlide model.viewport slide
   in
     div []
       [ svg
@@ -614,35 +615,30 @@ view model =
         , button [onClick Clear] [text "Clear"]
         , button [onClick BigGraph] [text "Big"]
         ]
-      , div
-        [ id "slide-buttons"
-        ]
-        (List.map slideButton Slides.slideNames)
       , shownSlide
-      --, div
-      --  [ id "info"
-      --  ]
-      --  [ text ("node count: " ++ (toString (List.length (Graph.toNodeList modelNodes))))
-      --  , br [] []
-      --  , text ("edge count: " ++ (toString (List.length (Graph.toEdgeList modelNodes))))
-      --  , br [] []
-      --  , text ("history past: " ++ (toString (History.length model.history)))
-      --  , br [] []
-      --  , text ("history future: " ++ (toString (History.futureLength model.history)))
-      --  ]
       ]
 
-slideButton : (String, Int) -> Html Msg
-slideButton (name, idx) =
-  Html.button [onClick (ShowSlide idx)] [Html.text name]
-
-wrapSlide : Html Msg -> Html Msg
-wrapSlide slide =
-  div [id "slide", onClick HideSlide] [slide]
+wrapSlide : Window.Size -> Slide Msg -> Html Msg
+wrapSlide viewport slide =
+  let
+    forward = div [id "slide-forward", onClick SlideForward] []
+    backward = div [id "slide-backward", onClick SlideBackward] []
+  in
+    case slide of
+      Content content ->
+        let
+          area = toFloat (viewport.width * viewport.height)
+          rawSize = sqrt area
+          adjSize = rawSize * 0.045
+          fontStyle = Html.Attributes.style [("font-size", (toString adjSize) ++ "px")]
+        in
+          div [id "slide", fontStyle] [content, forward, backward]
+      DemoTime ->
+        div [id "demo-time"] [forward, backward]
 
 defaultCode : String
 defaultCode =
-  "/* JavaScript code */\n\n<-- point of execution"
+  "/* JavaScript code */\n\n"
 
 makeViewBox : Int -> Int -> Int -> Int -> String
 makeViewBox x y width height =
