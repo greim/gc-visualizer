@@ -20,6 +20,7 @@ import Dom
 import Keyboard
 import Node exposing (Node, MemGraph, Marking(..), Designation(..), Ref(..), logGraph)
 import Bulk
+import Slides
 
 -- main ------------------------------------------------------------------------
 
@@ -34,14 +35,6 @@ main =
 
 -- model -----------------------------------------------------------------------
 
-type Mode = Move | Add | Delete | Label | Pan | Select
-
-type alias PendingEdge =
-  { from : Int
-  , x : Int
-  , y : Int
-  }
-
 type alias Model =
   { history : History (MemGraph)
   , viewport : Window.Size
@@ -53,6 +46,15 @@ type alias Model =
   , codeSize : Int
   , code : String
   , panning : Maybe ((Int, Int), (Int, Int))
+  , slide : Maybe Int
+  }
+
+type Mode = Move | Add | Delete | Label | Pan | Select
+
+type alias PendingEdge =
+  { from : Int
+  , x : Int
+  , y : Int
   }
 
 init : (Model, Cmd Msg)
@@ -68,6 +70,7 @@ init =
     codeSize = 25
     code = defaultCode
     panning = Nothing
+    slide = Nothing
     -----------------------------
     model = Model
       history
@@ -80,6 +83,7 @@ init =
       codeSize
       code
       panning
+      slide
     -----------------------------
     cmd = Task.perform Resize Window.size
   in
@@ -124,6 +128,8 @@ type Msg
   | ToggleRef Int Int
   | ToggleSelection Int
   | BigGraph
+  | ShowSlide Int
+  | HideSlide
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -495,6 +501,18 @@ update msg model =
         in
           (newModel, Cmd.none)
 
+      ShowSlide idx ->
+        let
+          newModel = { model | slide = Just idx }
+        in
+          (newModel, Cmd.none)
+
+      HideSlide ->
+        let
+          newModel = { model | slide = Nothing }
+        in
+          (newModel, Cmd.none)
+
 addPending : Int -> Maybe PendingEdge -> MemGraph -> MemGraph
 addPending to pendingEdge graph =
   case pendingEdge of
@@ -541,6 +559,11 @@ view model =
       Label -> "labeling"
       Pan -> "panning"
       Select -> "selecting"
+    shownSlide = case model.slide of
+      Nothing -> div [] []
+      Just idx -> case Slides.getSlide idx of
+        Nothing -> div [] []
+        Just slide -> wrapSlide slide
   in
     div []
       [ svg
@@ -592,17 +615,30 @@ view model =
         , button [onClick BigGraph] [text "Big"]
         ]
       , div
-        [ id "info"
+        [ id "slide-buttons"
         ]
-        [ text ("node count: " ++ (toString (List.length (Graph.toNodeList modelNodes))))
-        , br [] []
-        , text ("edge count: " ++ (toString (List.length (Graph.toEdgeList modelNodes))))
-        , br [] []
-        , text ("history past: " ++ (toString (History.length model.history)))
-        , br [] []
-        , text ("history future: " ++ (toString (History.futureLength model.history)))
-        ]
+        (List.map slideButton Slides.slideNames)
+      , shownSlide
+      --, div
+      --  [ id "info"
+      --  ]
+      --  [ text ("node count: " ++ (toString (List.length (Graph.toNodeList modelNodes))))
+      --  , br [] []
+      --  , text ("edge count: " ++ (toString (List.length (Graph.toEdgeList modelNodes))))
+      --  , br [] []
+      --  , text ("history past: " ++ (toString (History.length model.history)))
+      --  , br [] []
+      --  , text ("history future: " ++ (toString (History.futureLength model.history)))
+      --  ]
       ]
+
+slideButton : (String, Int) -> Html Msg
+slideButton (name, idx) =
+  Html.button [onClick (ShowSlide idx)] [Html.text name]
+
+wrapSlide : Html Msg -> Html Msg
+wrapSlide slide =
+  div [id "slide", onClick HideSlide] [slide]
 
 defaultCode : String
 defaultCode =
