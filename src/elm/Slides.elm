@@ -135,6 +135,51 @@ The GC roots include the global variable environment, plus whichever variable en
 """
   , DemoTime (Nothing) (Just Bulk.globalGraph)
   , slide "center" """
+# <big>Scope Chaining</big><br>And Closures and Stuff
+"""
+  , slide "" """
+# Closure
+
+When a function object is allocated, it receives a reference back to the variable environment where it was created.
+"""
+  , DemoTime (Just """function fn() {
+  // ...
+}
+""") (Just Bulk.scopeChain1)
+  , slide "" """
+# The Scope Chain
+
+When a function runs, a variable environment is created, which receives a reference to the function's parent var env.
+
+Thus, a chain is built, with arrows pointing backwards from child to parent.
+
+This is how code in a deeply-nested functions "sees" variables in higher scopes.
+"""
+  , DemoTime (Just """(function() {
+  (function() {
+    var x = 1;
+    (function() {
+      var y = 2;
+      (function() {
+        <== you are here
+      })();
+    })();
+  })();
+})();
+""") (Just Bulk.scopeChain2)
+  , slide "" """
+# Closure & Reachability
+
+In this sense, closure is similar to the concept of reachability. Both operate via the same mechanism, both describe what variables your code can see, and both inform what the GC retains in memory.
+"""
+  , DemoTime (Just "") (Just Bulk.justGlobal)
+  , slide "" """
+# Closure & Reachability
+
+In this sense, closure is similar to the concept of reachability. Both operate via the same mechanism, and both describe what variables your code can see, and both inform what the GC retains in memory.
+"""
+  , DemoTime Nothing Nothing
+  , slide "center" """
 # <big>#!/its/over</big>
 """
   ]

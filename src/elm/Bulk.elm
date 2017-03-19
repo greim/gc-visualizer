@@ -5,6 +5,9 @@ module Bulk exposing
   , multipleVarEnv
   , fooBarBaz
   , globalGraph
+  , scopeChain1
+  , scopeChain2
+  , justGlobal
   )
 
 -- import ----------------------------------------------------------------------
@@ -383,4 +386,45 @@ globalGraph = Graph.from
   , (71, Strong, 70)
   , (72, Strong, 73)
   , (72, Strong, 75)
+  ]
+
+scopeChain1 : MemGraph
+scopeChain1 = Graph.from
+  [ (1, Node 624 237 Normal False None "function")
+  , (2, Node 623 58 Root False None "global env")
+  ]
+  [ (1,Strong,2)
+  ]
+
+scopeChain2 : MemGraph
+scopeChain2 = Graph.from
+  [ (1, Node 830 63 Root False None "global env")
+  , (2, Node 637 181 Normal False None "function")
+  , (3, Node 639 297 Normal False None "function")
+  , (4, Node 638 417 Normal False None "function")
+  , (5, Node 645 535 Normal False None "function")
+  , (6, Node 830 178 Normal False None "var env")
+  , (7, Node 830 294 Normal False None "var env")
+  , (8, Node 832 415 Normal False None "var env")
+  , (9, Node 832 535 Root False None "var env")
+  , (10, Node 1006 229 Normal False None "1")
+  , (11, Node 1009 343 Normal False None "2")
+  ]
+  [ (2,Strong,1)
+  , (3,Strong,6)
+  , (4,Strong,7)
+  , (5,Strong,8)
+  , (6,Strong,1)
+  , (6,Strong,10)
+  , (7,Strong,6)
+  , (7,Strong,11)
+  , (8,Strong,7)
+  , (9,Strong,8)
+  ]
+
+justGlobal : MemGraph
+justGlobal = Graph.from
+  [ (1, Node 762 54 Root False None "global env")
+  ]
+  [
   ]
