@@ -13,12 +13,13 @@ import Html.Attributes exposing (..)
 import Markdown
 import Bulk
 import Node
+import Graph
 
 -- types -----------------------------------------------------------------------
 
 type Slide msg
   = Content (Html msg)
-  | DemoTime
+  | DemoTime (Maybe String) (Maybe Node.MemGraph)
 
 -- functions/values ------------------------------------------------------------
 
@@ -35,40 +36,104 @@ slides =
   , slide "" """
 # What is Garbage Collection?
 
-Garbage collection is how JavaScript gets rid of stuff you're not using. It knows whether to get rid of something is because it uses a trusty algorithm.
+Garbage collection is the process where the runtime automatically frees unused memory, instead of requiring the programmer to manually deallocate memory.
 """
   , slide "" """
-# The Incomplete Algorithm
+<div class="big-img"><img src="/static/img/thinking.png" alt=""></div>
+"""
+  , slide "" """
+# Garbage Collection
 
-A value is retained in memory if it's reachable from another value that's retained in memory.
+ * You don't control when it runs
+ * Your program pauses while it runs, causing jank
+ * Building a better GC is the topic of ongoing research
+ * Advanced implementations are complex
+   - Incremental strategies to minimize jank
+   - Run GC off main thread and/or in multiple threads
+ * Despite the above, semantics are simple!
 """
-  , DemoTime
   , slide "" """
-# Variable Environments:
+# How does it Know What's Garbage and What Isn't?
 
- * They're objects that hold your variables.
- * They're created every time a function runs.
- * They're invisible; you can't get a reference to one.
- * They're significant WRT garbage collection.
+It uses an algorithm called *mark and sweep*, which is based on the concept of *reachability*.
 """
-  , DemoTime
   , slide "" """
-# The Complete Algorithm.
+# Reachability: `foo => bar`
 
-A value is retained in memory if it's reachable from another value that's retained in memory, or if it's reachable from a garbage collection **root**.
-"""
-  , slide "" """
-# Mark & Sweep
+Reachability means `foo` has a reference to `bar`, such that if you have `foo`, you can get `bar`. An example of this is object property access, as in: `foo.bar`
 
- 1. Your program pauses.
- 2. Garbage collector marks every object on heap.
- 3. Finds everything reachable from roots and un-marks it.
- 4. Sweeps away anything still marked.
- 5. Your program resumes.
+If something is reachable, it's (potentially) in use.
+
+In mark and sweep, objects are retained in memory that are reachable from other objects that are retained in memory.
 """
   , slide "" """
-**Disclaimer:** Real-world garbage collectors are the topic of academic research and high-end VM optimization. The overall approach is similar to what's described here, but different strategies are explored for doing it incrementally and/or in a separate thread in order minimize pauses and keep the program running as smoothly as possible.
+<div class="big-img"><img src="/static/img/chicken-or-egg.png" alt=""></div>
 """
+  , slide "center" """
+# (Disregard the infinite regress for now; it just means there's a base case somewhere.)
+"""
+  , DemoTime (Just """var foo = {
+  bar: {
+    baz: "hello",
+  },
+};
+""") (Just Bulk.fooBarBaz)
+  , slide "center" """
+# Variable<br>Environments
+"""
+  , slide "" """
+# Variable Environments
+
+Objects containing variables local to a function-run.
+"""
+  , slide "" """
+# Variable Environments
+
+* Not directly referenceable from code; used by runtime
+* `var foo = false` creates an entry in a var env
+* A new var env is created every time a function runs
+* **They're 1st class citizens in the reachability graph**
+"""
+  , DemoTime (Just """function logNum(x) {
+  console.log(x);
+}
+
+logNum(1);
+logNum(2);
+logNum(3);
+logNum(4);
+logNum(5);
+logNum(6);
+""") (Just Bulk.multipleVarEnv)
+  , slide "" """
+# The Global Environment
+
+* Has a loop-back ref called `window` or `global`
+* ...which is why you can reference it directly
+* ...and why `window.window.window` works
+* Receives undeclared assignments: `data = {}`
+* Is otherwise just another variable environment
+* It's as if entire program wrapped in giant IIFE
+"""
+  , slide "" """
+# Mark & Sweep Base Case
+
+A value is retained in memory if it's reachable from another value that's retained in memory, **or from a garbage collection root**.
+"""
+  , slide "" """
+# Mark & Sweep <small>(In a Nutshell)</small>
+
+ 1. Your program pauses
+ 2. Mark: GC performs graph traversal, starting at roots and flagging everything it finds
+ 4. Sweep: Scans entire heap, de-allocates everything un-flagged, resets flags
+ 5. Your program resumes
+"""
+  , slide "" """
+# What are the GC Roots?
+
+The GC roots include the global variable environment, plus whichever variable environment you happen to be running in at the moment. (Plus a few other things.)
+"""
+  , DemoTime (Nothing) (Just Bulk.globalGraph)
   , slide "center" """
 # <big>#!/its/over</big>
 """

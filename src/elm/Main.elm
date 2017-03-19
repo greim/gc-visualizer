@@ -128,8 +128,7 @@ type Msg
   | ToggleRef Int Int
   | ToggleSelection Int
   | BigGraph
-  | SlideForward
-  | SlideBackward
+  | NewSlide Int
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -501,18 +500,26 @@ update msg model =
         in
           (newModel, Cmd.none)
 
-      SlideForward ->
+      NewSlide idx ->
         let
           maxIdx = Slides.length - 1
-          nextSlide = Basics.min maxIdx (model.slide + 1)
-          newModel = { model | slide = nextSlide }
-        in
-          (newModel, Cmd.none)
-
-      SlideBackward ->
-        let
-          prevSlide = Basics.max 0 (model.slide - 1)
-          newModel = { model | slide = prevSlide }
+          nextSlide = Basics.clamp 0 maxIdx idx
+          nextModel = { model | slide = nextSlide }
+          newModel = case Slides.getSlide nextSlide of
+            Nothing -> nextModel
+            Just slide -> case slide of
+              Content content -> nextModel
+              DemoTime code nodes ->
+                let
+                  history = model.history
+                  (newCode, showCode) = case code of
+                    Just code -> (code, True)
+                    Nothing -> (model.code, False)
+                  newHistory = case nodes of
+                    Just nodes -> History.init nodes
+                    Nothing -> history
+                in
+                  { nextModel | history = newHistory, code = newCode, showCode = showCode }
         in
           (newModel, Cmd.none)
 
@@ -564,7 +571,7 @@ view model =
       Select -> "selecting"
     shownSlide = case Slides.getSlide model.slide of
       Nothing -> div [] []
-      Just slide -> wrapSlide model.viewport slide
+      Just slide -> wrapSlide model.slide model.viewport slide
   in
     div []
       [ svg
@@ -608,21 +615,21 @@ view model =
       , div
         [ id "actions"
         ]
-        [ button [onClick Mark] [text "Mark"]
-        , button [onClick Find] [text "Find"]
+        [ button [onClick Mark] [text "Pause"]
+        , button [onClick Find] [text "Mark"]
         , button [onClick SweepStart] [text "Sweep"]
-        , button [onClick Done] [text "Done"]
+        , button [onClick Done] [text "Resume"]
         , button [onClick Clear] [text "Clear"]
         , button [onClick BigGraph] [text "Big"]
         ]
       , shownSlide
       ]
 
-wrapSlide : Window.Size -> Slide Msg -> Html Msg
-wrapSlide viewport slide =
+wrapSlide : Int -> Window.Size -> Slide Msg -> Html Msg
+wrapSlide currentIdx viewport slide =
   let
-    forward = div [id "slide-forward", onClick SlideForward] []
-    backward = div [id "slide-backward", onClick SlideBackward] []
+    forward = div [id "slide-forward", onClick (NewSlide (currentIdx + 1))] []
+    backward = div [id "slide-backward", onClick (NewSlide (currentIdx - 1))] []
   in
     case slide of
       Content content ->
@@ -633,7 +640,7 @@ wrapSlide viewport slide =
           fontStyle = Html.Attributes.style [("font-size", (toString adjSize) ++ "px")]
         in
           div [id "slide", fontStyle] [content, forward, backward]
-      DemoTime ->
+      DemoTime code nodes ->
         div [id "demo-time"] [forward, backward]
 
 defaultCode : String
