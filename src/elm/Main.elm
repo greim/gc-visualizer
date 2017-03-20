@@ -509,6 +509,7 @@ update msg model =
             Nothing -> nextModel
             Just slide -> case slide of
               Content content -> nextModel
+              ContinueDemo -> nextModel
               DemoTime code nodes ->
                 let
                   history = model.history
@@ -641,6 +642,8 @@ wrapSlide currentIdx viewport slide =
         in
           div [id "slide", fontStyle] [content, forward, backward]
       DemoTime code nodes ->
+        div [id "demo-time"] [forward, backward]
+      ContinueDemo ->
         div [id "demo-time"] [forward, backward]
 
 defaultCode : String

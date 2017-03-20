@@ -259,15 +259,23 @@ svg {
   h4 { font-size: 1.6em; }
   h5 { font-size: 1.5em; }
   h6 { font-size: 1.4em; }
+  h1 big {
+    text-shadow: .05em .05em #ccc, .1em .1em #eee;
+  }
   p + p {
     margin-top: .5em;
   }
   em {
     text-shadow: .03em .03em 0 rgba(0,0,0,0.4);
   }
-  code {
+  code, pre {
     font-family: "Fira Code", monospace;
-    color: #c60;
+    color: #950;
+  }
+  pre {
+    line-height: 1.4;
+    font-size: .6em;
+    color: #840;
   }
   .center {
     text-align: center;
