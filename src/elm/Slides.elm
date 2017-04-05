@@ -73,8 +73,8 @@ Objects that contain variables local to a function-run.
   , slide "" """
 # Variable Environments
 
-* Invisible
 * Created every time a function runs
+* Invisible
 * Interact by creating, reading and updating vars
 * Affect garbage collection
 """
@@ -98,8 +98,8 @@ logNum(6);
   , slide "" """
 # The Global Environment
 
-* Contains global variables
 * Has loop-back ref called `window`
+* Contains global variables
 * Receives undeclared assignments
 * Is otherwise just another variable environment
 """
