@@ -222,7 +222,6 @@ svg {
   right: 0;
   top: 0;
   z-index: 1;
-  user-select: none;
   .split-60-40,
   .split-50-50,
   .split-40-60 {
@@ -276,6 +275,23 @@ svg {
     line-height: 1.4;
     font-size: .6em;
     color: #840;
+    font-weight: bold;
+    em {
+      text-shadow: none;
+      font-style: normal;
+    }
+  }
+  pre.hilights {
+    transition: color 200ms linear;
+    em {
+      transition: color 200ms linear;
+    }
+    &:hover {
+      color: #aaa;
+      em {
+        color: #000;
+      }
+    }
   }
   .center {
     text-align: center;
