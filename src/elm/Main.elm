@@ -334,7 +334,6 @@ update msg model =
           ids = Graph.toNodeList modelNodes
             |> List.filter (\(id, node) -> isRetainable node)
             |> List.map (\(id, node) -> Graph.findConnected (\from ref to -> ref == Strong) id modelNodes)
-            |> List.map (\set -> Set.toList set)
             |> List.concat
         in
           (model, Task.perform Unmark (Task.succeed ids))

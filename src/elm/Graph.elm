@@ -191,16 +191,17 @@ removeEdge from to graph =
     Nothing ->
       graph
 
-findConnected : (Int -> b -> Int -> Bool) -> Int -> Graph a b -> Set Int
+findConnected : (Int -> b -> Int -> Bool) -> Int -> Graph a b -> List Int
 findConnected filterFn id graph =
   let
     queue = Queue.singleton id
-    results = Set.singleton id
+    dedupe = Set.singleton id
+    results = [id]
   in
-    findConnectedUgly filterFn queue results graph
+    findConnectedUgly filterFn queue dedupe results graph
 
-findConnectedUgly : (Int -> b -> Int -> Bool) -> Queue Int -> Set Int -> Graph a b -> Set Int
-findConnectedUgly filterFn queue results graph =
+findConnectedUgly : (Int -> b -> Int -> Bool) -> Queue Int -> Set Int -> List Int -> Graph a b -> List Int
+findConnectedUgly filterFn queue dedupe results graph =
   case Queue.deq queue of
     (Just from, smallerQueue) ->
       let
@@ -209,11 +210,12 @@ findConnectedUgly filterFn queue results graph =
           Just tosDict -> tosDict
         filteredTosDict = Dict.filter (\to a -> (filterFn from a to)) tosDict
         tos = Set.fromList (Dict.keys filteredTosDict)
-        unvisitedTos = Set.diff tos results
-        newResults = Set.union results unvisitedTos
-        listTos = Set.toList unvisitedTos
-        newQueue = Queue.enqAll listTos smallerQueue
+        unvisitedTos = Set.diff tos dedupe
+        newDedupe = Set.union dedupe unvisitedTos
+        unvisitedTosList = Set.toList unvisitedTos
+        newResults = results ++ unvisitedTosList
+        newQueue = Queue.enqAll unvisitedTosList smallerQueue
       in
-        findConnectedUgly filterFn newQueue newResults graph
+        findConnectedUgly filterFn newQueue newDedupe newResults graph
     (Nothing, sameQueue) ->
       results
