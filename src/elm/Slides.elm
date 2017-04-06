@@ -87,9 +87,6 @@ Objects that contain variables local to a function-run.
 logNum(1);
 logNum(2);
 logNum(3);
-logNum(4);
-logNum(5);
-logNum(6);
 
 <== you are here
 """) (Just Bulk.multipleVarEnv)
@@ -142,10 +139,7 @@ The GC roots include the global variable environment, plus whichever variable en
   (function() {
     var x = 1;
     (function() {
-      var y = 2;
-      (function() {
-        <== you are here
-      })();
+      <== you are here
     })();
   })();
 })();

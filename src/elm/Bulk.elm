@@ -252,23 +252,14 @@ multipleVarEnv : MemGraph
 multipleVarEnv = Graph.from
   [ (1, Node 524 66 Normal False None "var env")
   , (2, Node 724 65 Normal False None "var env")
-  , (3, Node 526 255 Normal False None "var env")
-  , (4, Node 730 255 Normal False None "var env")
-  , (5, Node 529 441 Normal False None "var env")
-  , (6, Node 734 442 Normal False None "var env")
-  , (9, Node 564 154 Normal False None "1")
-  , (10, Node 764 150 Normal False None "2")
-  , (11, Node 564 343 Normal False None "3")
-  , (12, Node 770 341 Normal False None "4")
-  , (13, Node 571 536 Normal False None "5")
-  , (14, Node 784 535 Normal False None "6")
+  , (3, Node 511 281 Normal False None "var env")
+  , (9, Node 617 171 Normal False None "1")
+  , (10, Node 820 165 Normal False None "2")
+  , (11, Node 607 388 Normal False None "3")
   ]
-  [ (1, Strong, 9)
-  , (2, Strong, 10)
-  , (3, Strong, 11)
-  , (4, Strong, 12)
-  , (5, Strong, 13)
-  , (6, Strong, 14)
+  [ (1,Strong,9)
+  , (2,Strong,10)
+  , (3,Strong,11)
   ]
 
 fooBarBaz : MemGraph
@@ -402,24 +393,16 @@ scopeChain2 = Graph.from
   , (2, Node 637 181 Normal False None "function")
   , (3, Node 639 297 Normal False None "function")
   , (4, Node 638 417 Normal False None "function")
-  , (5, Node 645 535 Normal False None "function")
   , (6, Node 830 178 Normal False None "var env")
   , (7, Node 830 294 Normal False None "var env")
-  , (8, Node 832 415 Normal False None "var env")
-  , (9, Node 832 535 Root False None "var env")
   , (10, Node 1006 229 Normal False None "1")
-  , (11, Node 1009 343 Normal False None "2")
   ]
   [ (2,Strong,1)
   , (3,Strong,6)
   , (4,Strong,7)
-  , (5,Strong,8)
   , (6,Strong,1)
   , (6,Strong,10)
   , (7,Strong,6)
-  , (7,Strong,11)
-  , (8,Strong,7)
-  , (9,Strong,8)
   ]
 
 justGlobal : MemGraph
