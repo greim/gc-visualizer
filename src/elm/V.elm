@@ -14,13 +14,13 @@ arrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
 arrow isStrong x1 y1 x2 y2 attrs =
   rawArrow isStrong x1 y1 x2 y2 "arrow" attrs
 
-markedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
-markedArrow isStrong x1 y1 x2 y2 attrs =
-  rawArrow isStrong x1 y1 x2 y2 "marked arrow" attrs
-
 unmarkedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
 unmarkedArrow isStrong x1 y1 x2 y2 attrs =
   rawArrow isStrong x1 y1 x2 y2 "unmarked arrow" attrs
+
+markedArrow : Bool -> Int -> Int -> Int -> Int -> List (Attribute msg) -> Svg msg
+markedArrow isStrong x1 y1 x2 y2 attrs =
+  rawArrow isStrong x1 y1 x2 y2 "marked arrow" attrs
 
 rawArrow : Bool -> Int -> Int -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
 rawArrow isStrong x1 y1 x2 y2 cls attrs =
@@ -92,13 +92,13 @@ node : Bool -> Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> S
 node isRetainable isRoot isSelected cx cy label attrs =
   rawNode isRetainable isRoot isSelected cx cy "node" label attrs
 
-markedNode : Bool -> Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
-markedNode isRetainable isRoot isSelected cx cy label attrs =
-  rawNode isRetainable isRoot isSelected cx cy "marked node" label attrs
-
 unmarkedNode : Bool -> Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
 unmarkedNode isRetainable isRoot isSelected cx cy label attrs =
   rawNode isRetainable isRoot isSelected cx cy "unmarked node" label attrs
+
+markedNode : Bool -> Bool -> Bool -> Int -> Int -> String -> List (Attribute msg) -> Svg msg
+markedNode isRetainable isRoot isSelected cx cy label attrs =
+  rawNode isRetainable isRoot isSelected cx cy "marked node" label attrs
 
 rawNode : Bool -> Bool -> Bool -> Int -> Int -> String -> String -> List (Attribute msg) -> Svg msg
 rawNode isRetainable isRoot isSelected x y cls label attrs =

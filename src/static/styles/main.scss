@@ -328,17 +328,17 @@ svg {
   stroke: #555;
 }
 
-.marked.node circle.ring {
+.unmarked.node circle.ring {
   stroke: #444;
 }
 
-.marked.node circle.dot {
+.unmarked.node circle.dot {
   stroke: #0f0;
   fill: #0f0;
   stroke-width: 0;
 }
 
-.unmarked.node circle.ring {
+.marked.node circle.ring {
   stroke: #0f0;
 }
 
@@ -366,7 +366,7 @@ circle.selection {
   stroke-dasharray: 8, 9;
 }
 
-.marked circle.selection {
+.unmarked circle.selection {
   visibility: hidden;
 }
 
@@ -395,11 +395,11 @@ circle.selection {
   stroke: #555;
 }
 
-.marked.arrow line {
+.unmarked.arrow line {
   stroke: #555;
 }
 
-.unmarked.arrow line {
+.marked.arrow line {
   stroke: #0f0;
 }
 

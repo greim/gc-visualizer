@@ -108,9 +108,9 @@ type Msg
   | TrackLabeling String
   | EndLabeling
   | Clear
-  | Mark
+  | Unmark
   | Find
-  | Unmark (List Int)
+  | Mark (List Int)
   | SweepStart
   | Sweep (List Int)
   | Done
@@ -321,10 +321,10 @@ update msg model =
         in
           (newModel, Cmd.none)
 
-      Mark ->
+      Unmark ->
         let
-          newNodes = Graph.map (\node -> { node | mark = Marked }) modelNodes
-          newHistory = History.push "mark" newNodes model.history
+          newNodes = Graph.map (\node -> { node | mark = Unmarked }) modelNodes
+          newHistory = History.push "unmark" newNodes model.history
           newModel = { model | history = newHistory }
         in
           (newModel, Cmd.none)
@@ -336,25 +336,25 @@ update msg model =
             |> List.map (\(id, node) -> Graph.findConnected (\from ref to -> ref == Strong) id modelNodes)
             |> List.concat
         in
-          (model, Task.perform Unmark (Task.succeed ids))
+          (model, Task.perform Mark (Task.succeed ids))
 
-      Unmark nodes ->
+      Mark nodes ->
         case nodes of
           id :: rest ->
             let
-              updateFn = (\node -> { node | mark = Unmarked })
+              updateFn = (\node -> { node | mark = Marked })
               newNodes = modelNodes |> Graph.updateNodeFn updateFn id
-              newHistory = History.push "unmark" newNodes model.history
+              newHistory = History.push "mark" newNodes model.history
               newModel = { model | history = newHistory }
             in
-              (newModel, delay 20 (Unmark rest))
+              (newModel, delay 20 (Mark rest))
           [] ->
             (model, Cmd.none)
 
       SweepStart ->
         let
           ids = Graph.toNodeList modelNodes
-            |> List.filter (\(id, node) -> node.mark == Marked)
+            |> List.filter (\(id, node) -> node.mark == Unmarked)
             |> List.map (\(id, node) -> id)
         in
           (model, Task.perform Sweep (Task.succeed ids))
@@ -615,7 +615,7 @@ view model =
       , div
         [ id "actions"
         ]
-        [ button [onClick Mark] [text "Pause"]
+        [ button [onClick Unmark] [text "Pause"]
         , button [onClick Find] [text "Mark"]
         , button [onClick SweepStart] [text "Sweep"]
         , button [onClick Done] [text "Resume"]
@@ -748,8 +748,8 @@ createNode id mode node =
     isRoo = isRoot node
     isSel = node.isSelected
     nodeFn = case node.mark of
-      Marked -> V.markedNode isRet isRoo isSel
       Unmarked -> V.unmarkedNode isRet isRoo isSel
+      Marked -> V.markedNode isRet isRoo isSel
       None -> V.node isRet isRoo isSel
   in
     ( toString id
@@ -771,9 +771,9 @@ createArrow (fromId, ref, toId) mode graph =
         let
           isStrong = ref == Strong
           arrowFn = case (fromNode.mark, toNode.mark) of
-            (Unmarked, Unmarked) -> V.unmarkedArrow isStrong
+            (Marked, Marked) -> V.markedArrow isStrong
             (None, None) -> V.arrow isStrong
-            _ -> V.markedArrow isStrong
+            _ -> V.unmarkedArrow isStrong
           attr = arrowMouseDown mode fromId toId
           arr = arrowFn fromNode.x fromNode.y toNode.x toNode.y [attr]
           key = (toString fromId) ++ "->" ++ (toString toId)
@@ -785,9 +785,9 @@ createArrow (fromId, ref, toId) mode graph =
 arrowFn : Node -> Node -> String
 arrowFn node1 node2 =
   case (node1.mark, node2.mark) of
-    (Unmarked, Unmarked) -> "unmarked arrow"
+    (Marked, Marked) -> "marked arrow"
     (None, None) -> "arrow"
-    _ -> "marked arrow"
+    _ -> "unmarked arrow"
 
 getXYExtra : (Int -> Int -> Int -> Bool -> Bool -> Msg) -> Json.Decoder Msg
 getXYExtra toVal =
