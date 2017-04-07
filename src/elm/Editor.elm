@@ -6,6 +6,8 @@ module Editor exposing
   , create
   , insert
   , insertRight
+  , inserts
+  , insertsRight
   , delete
   , deleteRight
   , toString
@@ -44,6 +46,20 @@ insert ch editor =
 insertRight : Char -> Editor -> Editor
 insertRight ch editor =
   { editor | after = (ch :: editor.after) }
+
+inserts : List Char -> Editor -> Editor
+inserts chars editor =
+  case chars of
+    [] -> editor
+    char :: rest ->
+      inserts rest (insert char editor)
+
+insertsRight : List Char -> Editor -> Editor
+insertsRight chars editor =
+  case chars of
+    [] -> editor
+    char :: rest ->
+      insertsRight rest (insertRight char editor)
 
 toString : Editor -> String
 toString editor =

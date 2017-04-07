@@ -14,13 +14,15 @@ import Html.Attributes exposing (..)
 import Markdown
 import Bulk
 import Node
-import Graph
+--import Graph
 
 -- types -----------------------------------------------------------------------
 
 type CharEdit
   = CharInsert Char
   | CharInsertRight Char
+  | CharInserts (List Char)
+  | CharInsertsRight (List Char)
   | CharHome
   | CharEnd
   | CharMoveBy Int
@@ -30,6 +32,8 @@ type CharEdit
 type StringEdit
   = StringInsert String
   | StringInsertRight String
+  | StringInserts String
+  | StringInsertsRight String
   | StringHome
   | StringEnd
   | StringMoveBy Int
@@ -50,62 +54,7 @@ slide cls md =
 
 slides : List (Slide msg)
 slides =
-  [ DemoTime Nothing (Just Graph.empty)
-  , DemoTime (Just "<== you are here") (Just Bulk.justGlobal)
-
-  , Edits (createCharEdits
-    [ StringHome
-    , StringInsertRight "\n\n"
-    , StringInsert "new Set();"
-    ])
-
-  , Edits (createCharEdits
-    [ StringHome
-    , StringInsertRight " "
-    , StringInsert "var items ="
-    , StringSeek "\n"
-    ])
-
-  , Edits (createCharEdits
-    [ StringInsert "\n\n(function() {});"
-    ])
-
-  , Edits (createCharEdits
-    [ StringMoveBy -1
-    , StringInsert "()"
-    ])
-
-  , Edits (createCharEdits
-    [ StringMoveBy -4
-    , StringInsertRight "\n"
-    , StringInsert "\n  var foo = {...};"
-    ])
-
-  , Edits (createCharEdits
-    [ StringInsert "\n  (function() {})();"
-    ])
-
-  , Edits (createCharEdits
-    [ StringMoveBy -5
-    , StringInsertRight "\n  "
-    , StringInsert "\n    var bar = [...];"
-    ])
-
-  , Edits (createCharEdits
-    [ StringInsert "\n    (function() {})();"
-    ])
-
-  , Edits (createCharEdits
-    [ StringMoveBy -5
-    , StringInsertRight "\n    "
-    , StringInsert "\n      items.add({});"
-    ])
-
-  , Edits (createCharEdits
-    [ StringInsert "\n      items.push(function() {...});"
-    ])
-
-  , slide "center" """
+  [ slide "center" """
 # *~ Nothing Dot Foo ~*<hr>Garbage Collection<br><big>Visualized</big>
 """
 
@@ -221,7 +170,74 @@ The GC roots include the global variable environment, plus whichever variable en
 """) (Just Bulk.scopeChain2)
 
 
-  , DemoTime (Just "\n\n<== you are here\n") (Just Bulk.justGlobal)
+  , DemoTime (Just "<== you are here") (Just Bulk.justGlobal)
+
+
+  , Edits (createCharEdits
+    [ StringHome
+    , StringInsertsRight "\n\n"
+    , StringInsert "new Set();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringHome
+    , StringInsertRight " "
+    , StringInsert "var items ="
+    , StringSeek "\n"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n\n"
+    , StringInsert "(() => {});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -1
+    , StringInsert "()"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -4
+    , StringInsertRight "\n"
+    , StringInserts "\n  "
+    , StringInsert "var foo = {...};"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n  "
+    , StringInsert "(() => {})();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -5
+    , StringInsertsRight "\n  "
+    , StringInserts "\n    "
+    , StringInsert "var bar = [...];"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n    "
+    , StringInsert "(() => {})();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -5
+    , StringInsertsRight "\n    "
+    , StringInserts "\n      "
+    , StringInsert "items.add({});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n      "
+    , StringInsert "items.push(() => {});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -3
+    , StringInsertsRight "\n      "
+    , StringInserts "\n        "
+    , StringInsert "// ......"
+    ])
 
 
   , slide "" """
@@ -373,6 +389,8 @@ createCharEditsSingle strEdit results =
     StringMoveBy amount -> [CharMoveBy amount]
     StringSeek str -> [CharSeek str]
     StringSeekRight str -> [CharSeekRight str]
+    StringInserts str -> [CharInserts (String.toList str)]
+    StringInsertsRight str -> [CharInsertsRight (List.reverse (String.toList str))]
     StringInsert str ->
       String.toList str
         |> List.map (\ch -> CharInsert ch)

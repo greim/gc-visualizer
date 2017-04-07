@@ -65,6 +65,11 @@ svg {
 #info {
   position: fixed;
   white-space: nowrap;
+  opacity: 0;
+  transition: opacity 50ms linear;
+  &:hover {
+    opacity: 1;
+  }
 }
 
 #modes {
@@ -105,10 +110,11 @@ svg {
 }
 
 #code {
+  font-size: 30px;
   z-index: 1;
   position: fixed;
   border-radius: 0 0 5px 0;
-  width: 400px;
+  width: 520px;
   background: rgba(215,215,215,0.95);
   top: 15px;
   bottom: 15px;
@@ -119,7 +125,7 @@ svg {
   }
   &.not-shown {
     opacity: .3;
-    left: -400px;
+    left: -520px;
   }
   textarea, .code-area {
     white-space: pre-wrap;
@@ -136,7 +142,6 @@ svg {
     right: 0;
     bottom: 0;
     padding: 17px;
-    font-size: 20px;
     font-family: "Fira Code", "Monaco", monospace;
     font-weight: 500;
     text-shadow: -.05em .15em .3em rgba(0,0,0,0.3);
@@ -145,15 +150,17 @@ svg {
       display: inline-block;
       height: 1.1em;
       vertical-align: text-bottom;
-      outline: 1px solid #000;
+      outline: 2px solid #000;
       animation: pulse 700ms infinite;
+      opacity: 1;
+      width: 0;
     }
 
     @keyframes pulse {
-      0% { outline-color: #000; }
-      30% { outline-color: #000; }
-      50% { outline-color: transparent; }
-      80% { outline-color: transparent; }
+      0% { opacity: 1; }
+      30% { opacity: 1; }
+      50% { opacity: 0; }
+      80% { opacity: 0; }
     }
 
 

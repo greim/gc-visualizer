@@ -530,25 +530,28 @@ update msg model =
         case edits of
           edit :: remainingEdits ->
             let
-              (time, newCode) = case edit of
+              newCode = case edit of
                 CharHome ->
-                  (500, Editor.home model.code)
+                  Editor.home model.code
                 CharEnd ->
-                  (500, Editor.end model.code)
+                  Editor.end model.code
                 CharMoveBy amount ->
-                  (500, Editor.moveBy amount model.code)
+                  Editor.moveBy amount model.code
                 CharSeek patt ->
-                  (500, Editor.seek patt model.code)
+                  Editor.seek patt model.code
                 CharSeekRight patt ->
-                  (500, Editor.seekRight patt model.code)
+                  Editor.seekRight patt model.code
                 CharInsert char ->
-                  let wait = if char == '\n' then 300 else 100
-                  in (wait, Editor.insert char model.code)
+                  Editor.insert char model.code
                 CharInsertRight char ->
-                  (300, Editor.insertRight char model.code)
+                  Editor.insertRight char model.code
+                CharInserts chars ->
+                  Editor.inserts chars model.code
+                CharInsertsRight chars ->
+                  Editor.insertsRight chars model.code
               newModel = { model | code = newCode }
             in
-              (newModel, delay time (EditCode remainingEdits))
+              (newModel, delay 20 (EditCode remainingEdits))
           [] ->
             (model, Cmd.none)
 
@@ -626,7 +629,8 @@ view model =
         [ button [class "code-toggle", onClick ToggleShowCode] [icon (if model.showCode then "chevron-left" else "chevron-right")]
         , button [onClick (ChangeCodeSize (model.codeSize + 2)), class "code-size", id "code-size-bigger"] [icon "plus-circle"]
         , button [onClick (ChangeCodeSize (model.codeSize - 2)), class "code-size", id "code-size-smaller"] [icon "minus-circle"]
-        , Html.code [class "code-area", Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]]
+        --, Html.code [class "code-area", Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]]
+        , Html.code [class "code-area"]
           [Html.span [] [Html.text codeBefore], Html.span [class "code-cursor"] [], Html.span [] [Html.text codeAfter]]
         --, Html.textarea [onInput ChangeCode, Html.Attributes.value (Editor.toString model.code), Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
         ]
