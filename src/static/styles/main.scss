@@ -110,11 +110,11 @@ svg {
 }
 
 #code {
-  font-size: 30px;
+  font-size: 27px;
   z-index: 1;
   position: fixed;
   border-radius: 0 0 5px 0;
-  width: 520px;
+  width: 500px;
   background: rgba(215,215,215,0.95);
   top: 15px;
   bottom: 15px;
@@ -125,10 +125,10 @@ svg {
   }
   &.not-shown {
     opacity: .3;
-    left: -520px;
+    left: -500px;
   }
   textarea, .code-area {
-    white-space: pre-wrap;
+    white-space: pre;
     color: #000;
     display: block;
     position: absolute;
@@ -145,7 +145,7 @@ svg {
     font-family: "Fira Code", "Monaco", monospace;
     font-weight: 500;
     text-shadow: -.05em .15em .3em rgba(0,0,0,0.3);
-    line-height: 1.7;
+    line-height: 1.4;
     .code-cursor {
       display: inline-block;
       height: 1.1em;
