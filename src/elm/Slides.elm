@@ -2,6 +2,7 @@
 
 module Slides exposing
   ( Slide(..)
+  , CharEdit(..)
   , getSlide
   , length
   )
@@ -17,10 +18,29 @@ import Graph
 
 -- types -----------------------------------------------------------------------
 
+type CharEdit
+  = CharInsert Char
+  | CharInsertRight Char
+  | CharHome
+  | CharEnd
+  | CharMoveBy Int
+  | CharSeek String
+  | CharSeekRight String
+
+type StringEdit
+  = StringInsert String
+  | StringInsertRight String
+  | StringHome
+  | StringEnd
+  | StringMoveBy Int
+  | StringSeek String
+  | StringSeekRight String
+
 type Slide msg
   = Content (Html msg)
   | DemoTime (Maybe String) (Maybe Node.MemGraph)
   | ContinueDemo
+  | Edits (List CharEdit)
 
 -- functions/values ------------------------------------------------------------
 
@@ -30,7 +50,62 @@ slide cls md =
 
 slides : List (Slide msg)
 slides =
-  [ slide "center" """
+  [ DemoTime Nothing (Just Graph.empty)
+  , DemoTime (Just "<== you are here") (Just Bulk.justGlobal)
+
+  , Edits (createCharEdits
+    [ StringHome
+    , StringInsertRight "\n\n"
+    , StringInsert "new Set();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringHome
+    , StringInsertRight " "
+    , StringInsert "var items ="
+    , StringSeek "\n"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInsert "\n\n(function() {});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -1
+    , StringInsert "()"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -4
+    , StringInsertRight "\n"
+    , StringInsert "\n  var foo = {...};"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInsert "\n  (function() {})();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -5
+    , StringInsertRight "\n  "
+    , StringInsert "\n    var bar = [...];"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInsert "\n    (function() {})();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -5
+    , StringInsertRight "\n    "
+    , StringInsert "\n      items.add({});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInsert "\n      items.push(function() {...});"
+    ])
+
+  , slide "center" """
 # *~ Nothing Dot Foo ~*<hr>Garbage Collection<br><big>Visualized</big>
 """
 
@@ -146,10 +221,7 @@ The GC roots include the global variable environment, plus whichever variable en
 """) (Just Bulk.scopeChain2)
 
 
-  , DemoTime (Just """
-
-<== you are here
-""") (Just Bulk.justGlobal)
+  , DemoTime (Just "\n\n<== you are here\n") (Just Bulk.justGlobal)
 
 
   , slide "" """
@@ -286,3 +358,25 @@ getSlide_ idx slides =
       else getSlide_ (idx - 1) rest
     [] ->
       Nothing
+
+createCharEdits : List StringEdit -> List CharEdit
+createCharEdits stringEdits =
+  stringEdits
+    |> List.map (\strEdit -> createCharEditsSingle strEdit [])
+    |> List.concat
+
+createCharEditsSingle : StringEdit -> List CharEdit -> List CharEdit
+createCharEditsSingle strEdit results =
+  case strEdit of
+    StringHome -> [CharHome]
+    StringEnd -> [CharEnd]
+    StringMoveBy amount -> [CharMoveBy amount]
+    StringSeek str -> [CharSeek str]
+    StringSeekRight str -> [CharSeekRight str]
+    StringInsert str ->
+      String.toList str
+        |> List.map (\ch -> CharInsert ch)
+    StringInsertRight str ->
+      String.toList str
+        |> List.reverse
+        |> List.map (\ch -> CharInsertRight ch)

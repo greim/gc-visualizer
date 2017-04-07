@@ -13,14 +13,15 @@ import Window
 import Task
 import Process
 import Time exposing (Time)
-import Set exposing (Set)
+--import Set exposing (Set)
 import V
 import History exposing (History)
 import Dom
 import Keyboard
 import Node exposing (Node, MemGraph, Marking(..), Designation(..), Ref(..), logGraph)
 import Bulk
-import Slides exposing ( Slide(..), getSlide, length)
+import Slides exposing ( Slide(..), CharEdit(..), getSlide, length)
+import Editor exposing (Editor)
 
 -- main ------------------------------------------------------------------------
 
@@ -44,7 +45,7 @@ type alias Model =
   , labelingNode : Maybe Int
   , showCode : Bool
   , codeSize : Int
-  , code : String
+  , code : Editor
   , panning : Maybe ((Int, Int), (Int, Int))
   , slide : Int
   }
@@ -67,8 +68,8 @@ init =
     movingNode = Nothing
     labelingNode = Nothing
     showCode = False
-    codeSize = 25
-    code = defaultCode
+    codeSize = 15
+    code = Editor.blank
     panning = Nothing
     slide = 0
     -----------------------------
@@ -129,6 +130,7 @@ type Msg
   | ToggleSelection Int
   | BigGraph
   | NewSlide Int
+  | EditCode (List CharEdit)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -317,7 +319,7 @@ update msg model =
       Clear ->
         let
           newHistory = History.push "clear" Graph.empty model.history
-          newModel = { model | history = newHistory, code = defaultCode }
+          newModel = { model | history = newHistory, code = Editor.blank }
         in
           (newModel, Cmd.none)
 
@@ -414,7 +416,7 @@ update msg model =
 
       ChangeCode code ->
         let
-          newModel = { model | code = code }
+          newModel = { model | code = Editor.create code }
         in
           (newModel, Cmd.none)
 
@@ -504,24 +506,51 @@ update msg model =
           maxIdx = Slides.length - 1
           nextSlide = Basics.clamp 0 maxIdx idx
           nextModel = { model | slide = nextSlide }
-          newModel = case Slides.getSlide nextSlide of
-            Nothing -> nextModel
+        in
+          case Slides.getSlide nextSlide of
+            Nothing -> (nextModel, Cmd.none)
             Just slide -> case slide of
-              Content content -> nextModel
-              ContinueDemo -> nextModel
+              Content content -> (nextModel, Cmd.none)
+              ContinueDemo -> (nextModel, Cmd.none)
+              Edits charEdits -> (nextModel, delay 0 (EditCode charEdits))
               DemoTime code nodes ->
                 let
                   history = model.history
                   (newCode, showCode) = case code of
-                    Just code -> (code, True)
+                    Just code -> (Editor.create code, True)
                     Nothing -> (model.code, False)
                   newHistory = case nodes of
                     Just nodes -> History.init nodes
                     Nothing -> history
+                  demoModel = { nextModel | history = newHistory, code = newCode, showCode = showCode }
                 in
-                  { nextModel | history = newHistory, code = newCode, showCode = showCode }
-        in
-          (newModel, Cmd.none)
+                  (demoModel, Cmd.none)
+
+      EditCode edits ->
+        case edits of
+          edit :: remainingEdits ->
+            let
+              (time, newCode) = case edit of
+                CharHome ->
+                  (500, Editor.home model.code)
+                CharEnd ->
+                  (500, Editor.end model.code)
+                CharMoveBy amount ->
+                  (500, Editor.moveBy amount model.code)
+                CharSeek patt ->
+                  (500, Editor.seek patt model.code)
+                CharSeekRight patt ->
+                  (500, Editor.seekRight patt model.code)
+                CharInsert char ->
+                  let wait = if char == '\n' then 300 else 100
+                  in (wait, Editor.insert char model.code)
+                CharInsertRight char ->
+                  (300, Editor.insertRight char model.code)
+              newModel = { model | code = newCode }
+            in
+              (newModel, delay time (EditCode remainingEdits))
+          [] ->
+            (model, Cmd.none)
 
 addPending : Int -> Maybe PendingEdge -> MemGraph -> MemGraph
 addPending to pendingEdge graph =
@@ -572,6 +601,7 @@ view model =
     shownSlide = case Slides.getSlide model.slide of
       Nothing -> div [] []
       Just slide -> wrapSlide model.slide model.viewport slide
+    (codeBefore, codeAfter) = Editor.toStrings model.code
   in
     div []
       [ svg
@@ -596,7 +626,9 @@ view model =
         [ button [class "code-toggle", onClick ToggleShowCode] [icon (if model.showCode then "chevron-left" else "chevron-right")]
         , button [onClick (ChangeCodeSize (model.codeSize + 2)), class "code-size", id "code-size-bigger"] [icon "plus-circle"]
         , button [onClick (ChangeCodeSize (model.codeSize - 2)), class "code-size", id "code-size-smaller"] [icon "minus-circle"]
-        , Html.textarea [onInput ChangeCode, Html.Attributes.value model.code, Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
+        , Html.code [class "code-area", Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]]
+          [Html.span [] [Html.text codeBefore], Html.span [class "code-cursor"] [], Html.span [] [Html.text codeAfter]]
+        --, Html.textarea [onInput ChangeCode, Html.Attributes.value (Editor.toString model.code), Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
         ]
       , div
         [ id "modes"
@@ -643,6 +675,8 @@ wrapSlide currentIdx viewport slide =
       DemoTime code nodes ->
         div [id "demo-time"] [forward, backward]
       ContinueDemo ->
+        div [id "demo-time"] [forward, backward]
+      Edits charEdits ->
         div [id "demo-time"] [forward, backward]
 
 defaultCode : String
