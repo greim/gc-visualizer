@@ -243,7 +243,7 @@ The GC roots include the global variable environment, plus whichever variable en
   , slide "" """
 # Weak References
 
-ES6 introduced `WeakMap` and `WeakSet` data structures which *weakly reference* their contents.
+ES2015 introduced `WeakMap` and `WeakSet` data structures which *weakly reference* their contents.
 """
 
 

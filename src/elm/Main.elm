@@ -45,9 +45,8 @@ type alias Model =
   , labelingNode : Maybe Int
   , showCode : Bool
   , codeSize : Int
-  , code : Editor
+  , code : String
   , panning : Maybe ((Int, Int), (Int, Int))
-  , slide : Int
   }
 
 type Mode = Move | Add | Delete | Label | Pan | Select
@@ -68,10 +67,9 @@ init =
     movingNode = Nothing
     labelingNode = Nothing
     showCode = False
-    codeSize = 15
-    code = Editor.blank
+    codeSize = 25
+    code = ""
     panning = Nothing
-    slide = 0
     -----------------------------
     model = Model
       history
@@ -84,7 +82,6 @@ init =
       codeSize
       code
       panning
-      slide
     -----------------------------
     cmd = Task.perform Resize Window.size
   in
@@ -129,8 +126,6 @@ type Msg
   | ToggleRef Int Int
   | ToggleSelection Int
   | BigGraph
-  | NewSlide Int
-  | EditCode (List CharEdit)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -319,7 +314,7 @@ update msg model =
       Clear ->
         let
           newHistory = History.push "clear" Graph.empty model.history
-          newModel = { model | history = newHistory, code = Editor.blank }
+          newModel = { model | history = newHistory, code = "" }
         in
           (newModel, Cmd.none)
 
@@ -416,7 +411,7 @@ update msg model =
 
       ChangeCode code ->
         let
-          newModel = { model | code = Editor.create code }
+          newModel = { model | code = code }
         in
           (newModel, Cmd.none)
 
@@ -501,60 +496,6 @@ update msg model =
         in
           (newModel, Cmd.none)
 
-      NewSlide idx ->
-        let
-          maxIdx = Slides.length - 1
-          nextSlide = Basics.clamp 0 maxIdx idx
-          nextModel = { model | slide = nextSlide }
-        in
-          case Slides.getSlide nextSlide of
-            Nothing -> (nextModel, Cmd.none)
-            Just slide -> case slide of
-              Content content -> (nextModel, Cmd.none)
-              ContinueDemo -> (nextModel, Cmd.none)
-              Edits charEdits -> (nextModel, delay 0 (EditCode charEdits))
-              DemoTime code nodes ->
-                let
-                  history = model.history
-                  (newCode, showCode) = case code of
-                    Just code -> (Editor.create code, True)
-                    Nothing -> (model.code, False)
-                  newHistory = case nodes of
-                    Just nodes -> History.init nodes
-                    Nothing -> history
-                  demoModel = { nextModel | history = newHistory, code = newCode, showCode = showCode }
-                in
-                  (demoModel, Cmd.none)
-
-      EditCode edits ->
-        case edits of
-          edit :: remainingEdits ->
-            let
-              newCode = case edit of
-                CharHome ->
-                  Editor.home model.code
-                CharEnd ->
-                  Editor.end model.code
-                CharMoveBy amount ->
-                  Editor.moveBy amount model.code
-                CharSeek patt ->
-                  Editor.seek patt model.code
-                CharSeekRight patt ->
-                  Editor.seekRight patt model.code
-                CharInsert char ->
-                  Editor.insert char model.code
-                CharInsertRight char ->
-                  Editor.insertRight char model.code
-                CharInserts chars ->
-                  Editor.inserts chars model.code
-                CharInsertsRight chars ->
-                  Editor.insertsRight chars model.code
-              newModel = { model | code = newCode }
-            in
-              (newModel, delay 20 (EditCode remainingEdits))
-          [] ->
-            (model, Cmd.none)
-
 addPending : Int -> Maybe PendingEdge -> MemGraph -> MemGraph
 addPending to pendingEdge graph =
   case pendingEdge of
@@ -601,10 +542,6 @@ view model =
       Label -> "labeling"
       Pan -> "panning"
       Select -> "selecting"
-    shownSlide = case Slides.getSlide model.slide of
-      Nothing -> div [] []
-      Just slide -> wrapSlide model.slide model.viewport slide
-    (codeBefore, codeAfter) = Editor.toStrings model.code
   in
     div []
       [ svg
@@ -627,12 +564,12 @@ view model =
         , class (if model.showCode then "shown" else "not-shown")
         ]
         [ button [class "code-toggle", onClick ToggleShowCode] [icon (if model.showCode then "chevron-left" else "chevron-right")]
-        , button [onClick (ChangeCodeSize (model.codeSize + 2)), class "code-size", id "code-size-bigger"] [icon "plus-circle"]
-        , button [onClick (ChangeCodeSize (model.codeSize - 2)), class "code-size", id "code-size-smaller"] [icon "minus-circle"]
+        , button [Html.Attributes.title "increase font size", onClick (ChangeCodeSize (model.codeSize + 2)), class "code-size", id "code-size-bigger"] [icon "plus-circle"]
+        , button [Html.Attributes.title "decrease font size", onClick (ChangeCodeSize (model.codeSize - 2)), class "code-size", id "code-size-smaller"] [icon "minus-circle"]
         --, Html.code [class "code-area", Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]]
-        , Html.code [class "code-area"]
-          [Html.span [] [Html.text codeBefore], Html.span [class "code-cursor"] [], Html.span [] [Html.text codeAfter]]
-        --, Html.textarea [onInput ChangeCode, Html.Attributes.value (Editor.toString model.code), Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
+        --, Html.code [class "code-area"]
+        --  [Html.span [] [Html.text codeBefore], Html.span [class "code-cursor"] [], Html.span [] [Html.text codeAfter]]
+        , Html.textarea [onInput ChangeCode, Html.Attributes.spellcheck False, Html.Attributes.value model.code, Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
         ]
       , div
         [ id "modes"
@@ -658,30 +595,7 @@ view model =
         , button [onClick Clear] [text "Clear"]
         , button [onClick BigGraph] [text "Big"]
         ]
-      , shownSlide
       ]
-
-wrapSlide : Int -> Window.Size -> Slide Msg -> Html Msg
-wrapSlide currentIdx viewport slide =
-  let
-    forward = div [id "slide-forward", onClick (NewSlide (currentIdx + 1))] []
-    backward = div [id "slide-backward", onClick (NewSlide (currentIdx - 1))] []
-  in
-    case slide of
-      Content content ->
-        let
-          area = toFloat (viewport.width * viewport.height)
-          rawSize = sqrt area
-          adjSize = rawSize * 0.045
-          fontStyle = Html.Attributes.style [("font-size", (toString adjSize) ++ "px")]
-        in
-          div [id "slide", fontStyle] [content, forward, backward]
-      DemoTime code nodes ->
-        div [id "demo-time"] [forward, backward]
-      ContinueDemo ->
-        div [id "demo-time"] [forward, backward]
-      Edits charEdits ->
-        div [id "demo-time"] [forward, backward]
 
 defaultCode : String
 defaultCode =
