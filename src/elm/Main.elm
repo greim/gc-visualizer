@@ -20,8 +20,6 @@ import Dom
 import Keyboard
 import Node exposing (Node, MemGraph, Marking(..), Designation(..), Ref(..), logGraph)
 import Bulk
-import Slides exposing ( Slide(..), CharEdit(..), getSlide, length)
-import Editor exposing (Editor)
 
 -- main ------------------------------------------------------------------------
 
