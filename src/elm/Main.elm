@@ -13,14 +13,13 @@ import Window
 import Task
 import Process
 import Time exposing (Time)
-import Set exposing (Set)
+--import Set exposing (Set)
 import V
 import History exposing (History)
 import Dom
 import Keyboard
 import Node exposing (Node, MemGraph, Marking(..), Designation(..), Ref(..), logGraph)
 import Bulk
-import Slides exposing ( Slide(..), getSlide, length)
 
 -- main ------------------------------------------------------------------------
 
@@ -46,7 +45,6 @@ type alias Model =
   , codeSize : Int
   , code : String
   , panning : Maybe ((Int, Int), (Int, Int))
-  , slide : Int
   }
 
 type Mode = Move | Add | Delete | Label | Pan | Select
@@ -68,9 +66,8 @@ init =
     labelingNode = Nothing
     showCode = False
     codeSize = 25
-    code = defaultCode
+    code = ""
     panning = Nothing
-    slide = 0
     -----------------------------
     model = Model
       history
@@ -83,7 +80,6 @@ init =
       codeSize
       code
       panning
-      slide
     -----------------------------
     cmd = Task.perform Resize Window.size
   in
@@ -108,9 +104,9 @@ type Msg
   | TrackLabeling String
   | EndLabeling
   | Clear
-  | Mark
+  | Unmark
   | Find
-  | Unmark (List Int)
+  | Mark (List Int)
   | SweepStart
   | Sweep (List Int)
   | Done
@@ -128,7 +124,6 @@ type Msg
   | ToggleRef Int Int
   | ToggleSelection Int
   | BigGraph
-  | NewSlide Int
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -317,14 +312,14 @@ update msg model =
       Clear ->
         let
           newHistory = History.push "clear" Graph.empty model.history
-          newModel = { model | history = newHistory, code = defaultCode }
+          newModel = { model | history = newHistory, code = "" }
         in
           (newModel, Cmd.none)
 
-      Mark ->
+      Unmark ->
         let
-          newNodes = Graph.map (\node -> { node | mark = Marked }) modelNodes
-          newHistory = History.push "mark" newNodes model.history
+          newNodes = Graph.map (\node -> { node | mark = Unmarked }) modelNodes
+          newHistory = History.push "unmark" newNodes model.history
           newModel = { model | history = newHistory }
         in
           (newModel, Cmd.none)
@@ -334,28 +329,27 @@ update msg model =
           ids = Graph.toNodeList modelNodes
             |> List.filter (\(id, node) -> isRetainable node)
             |> List.map (\(id, node) -> Graph.findConnected (\from ref to -> ref == Strong) id modelNodes)
-            |> List.map (\set -> Set.toList set)
             |> List.concat
         in
-          (model, Task.perform Unmark (Task.succeed ids))
+          (model, Task.perform Mark (Task.succeed ids))
 
-      Unmark nodes ->
+      Mark nodes ->
         case nodes of
           id :: rest ->
             let
-              updateFn = (\node -> { node | mark = Unmarked })
+              updateFn = (\node -> { node | mark = Marked })
               newNodes = modelNodes |> Graph.updateNodeFn updateFn id
-              newHistory = History.push "unmark" newNodes model.history
+              newHistory = History.push "mark" newNodes model.history
               newModel = { model | history = newHistory }
             in
-              (newModel, delay 20 (Unmark rest))
+              (newModel, delay 20 (Mark rest))
           [] ->
             (model, Cmd.none)
 
       SweepStart ->
         let
           ids = Graph.toNodeList modelNodes
-            |> List.filter (\(id, node) -> node.mark == Marked)
+            |> List.filter (\(id, node) -> node.mark == Unmarked)
             |> List.map (\(id, node) -> id)
         in
           (model, Task.perform Sweep (Task.succeed ids))
@@ -500,30 +494,6 @@ update msg model =
         in
           (newModel, Cmd.none)
 
-      NewSlide idx ->
-        let
-          maxIdx = Slides.length - 1
-          nextSlide = Basics.clamp 0 maxIdx idx
-          nextModel = { model | slide = nextSlide }
-          newModel = case Slides.getSlide nextSlide of
-            Nothing -> nextModel
-            Just slide -> case slide of
-              Content content -> nextModel
-              ContinueDemo -> nextModel
-              DemoTime code nodes ->
-                let
-                  history = model.history
-                  (newCode, showCode) = case code of
-                    Just code -> (code, True)
-                    Nothing -> (model.code, False)
-                  newHistory = case nodes of
-                    Just nodes -> History.init nodes
-                    Nothing -> history
-                in
-                  { nextModel | history = newHistory, code = newCode, showCode = showCode }
-        in
-          (newModel, Cmd.none)
-
 addPending : Int -> Maybe PendingEdge -> MemGraph -> MemGraph
 addPending to pendingEdge graph =
   case pendingEdge of
@@ -570,9 +540,6 @@ view model =
       Label -> "labeling"
       Pan -> "panning"
       Select -> "selecting"
-    shownSlide = case Slides.getSlide model.slide of
-      Nothing -> div [] []
-      Just slide -> wrapSlide model.slide model.viewport slide
   in
     div []
       [ svg
@@ -595,9 +562,12 @@ view model =
         , class (if model.showCode then "shown" else "not-shown")
         ]
         [ button [class "code-toggle", onClick ToggleShowCode] [icon (if model.showCode then "chevron-left" else "chevron-right")]
-        , button [onClick (ChangeCodeSize (model.codeSize + 2)), class "code-size", id "code-size-bigger"] [icon "plus-circle"]
-        , button [onClick (ChangeCodeSize (model.codeSize - 2)), class "code-size", id "code-size-smaller"] [icon "minus-circle"]
-        , Html.textarea [onInput ChangeCode, Html.Attributes.value model.code, Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
+        , button [Html.Attributes.title "increase font size", onClick (ChangeCodeSize (model.codeSize + 2)), class "code-size", id "code-size-bigger"] [icon "plus-circle"]
+        , button [Html.Attributes.title "decrease font size", onClick (ChangeCodeSize (model.codeSize - 2)), class "code-size", id "code-size-smaller"] [icon "minus-circle"]
+        --, Html.code [class "code-area", Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]]
+        --, Html.code [class "code-area"]
+        --  [Html.span [] [Html.text codeBefore], Html.span [class "code-cursor"] [], Html.span [] [Html.text codeAfter]]
+        , Html.textarea [onInput ChangeCode, Html.Attributes.spellcheck False, Html.Attributes.value model.code, Html.Attributes.style [("font-size",(toString model.codeSize) ++ "px")]] []
         ]
       , div
         [ id "modes"
@@ -616,35 +586,14 @@ view model =
       , div
         [ id "actions"
         ]
-        [ button [onClick Mark] [text "Pause"]
+        [ button [onClick Unmark] [text "Pause"]
         , button [onClick Find] [text "Mark"]
         , button [onClick SweepStart] [text "Sweep"]
         , button [onClick Done] [text "Resume"]
         , button [onClick Clear] [text "Clear"]
         , button [onClick BigGraph] [text "Big"]
         ]
-      , shownSlide
       ]
-
-wrapSlide : Int -> Window.Size -> Slide Msg -> Html Msg
-wrapSlide currentIdx viewport slide =
-  let
-    forward = div [id "slide-forward", onClick (NewSlide (currentIdx + 1))] []
-    backward = div [id "slide-backward", onClick (NewSlide (currentIdx - 1))] []
-  in
-    case slide of
-      Content content ->
-        let
-          area = toFloat (viewport.width * viewport.height)
-          rawSize = sqrt area
-          adjSize = rawSize * 0.045
-          fontStyle = Html.Attributes.style [("font-size", (toString adjSize) ++ "px")]
-        in
-          div [id "slide", fontStyle] [content, forward, backward]
-      DemoTime code nodes ->
-        div [id "demo-time"] [forward, backward]
-      ContinueDemo ->
-        div [id "demo-time"] [forward, backward]
 
 defaultCode : String
 defaultCode =
@@ -749,8 +698,8 @@ createNode id mode node =
     isRoo = isRoot node
     isSel = node.isSelected
     nodeFn = case node.mark of
-      Marked -> V.markedNode isRet isRoo isSel
       Unmarked -> V.unmarkedNode isRet isRoo isSel
+      Marked -> V.markedNode isRet isRoo isSel
       None -> V.node isRet isRoo isSel
   in
     ( toString id
@@ -772,9 +721,9 @@ createArrow (fromId, ref, toId) mode graph =
         let
           isStrong = ref == Strong
           arrowFn = case (fromNode.mark, toNode.mark) of
-            (Unmarked, Unmarked) -> V.unmarkedArrow isStrong
+            (Marked, Marked) -> V.markedArrow isStrong
             (None, None) -> V.arrow isStrong
-            _ -> V.markedArrow isStrong
+            _ -> V.unmarkedArrow isStrong
           attr = arrowMouseDown mode fromId toId
           arr = arrowFn fromNode.x fromNode.y toNode.x toNode.y [attr]
           key = (toString fromId) ++ "->" ++ (toString toId)
@@ -786,9 +735,9 @@ createArrow (fromId, ref, toId) mode graph =
 arrowFn : Node -> Node -> String
 arrowFn node1 node2 =
   case (node1.mark, node2.mark) of
-    (Unmarked, Unmarked) -> "unmarked arrow"
+    (Marked, Marked) -> "marked arrow"
     (None, None) -> "arrow"
-    _ -> "marked arrow"
+    _ -> "unmarked arrow"
 
 getXYExtra : (Int -> Int -> Int -> Bool -> Bool -> Msg) -> Json.Decoder Msg
 getXYExtra toVal =

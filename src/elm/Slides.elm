@@ -2,6 +2,7 @@
 
 module Slides exposing
   ( Slide(..)
+  , CharEdit(..)
   , getSlide
   , length
   )
@@ -13,14 +14,37 @@ import Html.Attributes exposing (..)
 import Markdown
 import Bulk
 import Node
-import Graph
+--import Graph
 
 -- types -----------------------------------------------------------------------
+
+type CharEdit
+  = CharInsert Char
+  | CharInsertRight Char
+  | CharInserts (List Char)
+  | CharInsertsRight (List Char)
+  | CharHome
+  | CharEnd
+  | CharMoveBy Int
+  | CharSeek String
+  | CharSeekRight String
+
+type StringEdit
+  = StringInsert String
+  | StringInsertRight String
+  | StringInserts String
+  | StringInsertsRight String
+  | StringHome
+  | StringEnd
+  | StringMoveBy Int
+  | StringSeek String
+  | StringSeekRight String
 
 type Slide msg
   = Content (Html msg)
   | DemoTime (Maybe String) (Maybe Node.MemGraph)
   | ContinueDemo
+  | Edits (List CharEdit)
 
 -- functions/values ------------------------------------------------------------
 
@@ -87,9 +111,6 @@ Objects that contain variables local to a function-run.
 logNum(1);
 logNum(2);
 logNum(3);
-logNum(4);
-logNum(5);
-logNum(6);
 
 <== you are here
 """) (Just Bulk.multipleVarEnv)
@@ -142,26 +163,87 @@ The GC roots include the global variable environment, plus whichever variable en
   (function() {
     var x = 1;
     (function() {
-      var y = 2;
-      (function() {
-        <== you are here
-      })();
+      <== you are here
     })();
   })();
 })();
 """) (Just Bulk.scopeChain2)
 
 
-  , DemoTime (Just """
+  , DemoTime (Just "<== you are here") (Just Bulk.justGlobal)
 
-<== you are here
-""") (Just Bulk.justGlobal)
+
+  , Edits (createCharEdits
+    [ StringHome
+    , StringInsertsRight "\n\n"
+    , StringInsert "new Set();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringHome
+    , StringInsertRight " "
+    , StringInsert "var items ="
+    , StringSeek "\n"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n\n"
+    , StringInsert "(() => {});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -1
+    , StringInsert "()"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -4
+    , StringInsertRight "\n"
+    , StringInserts "\n  "
+    , StringInsert "var foo = {...};"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n  "
+    , StringInsert "(() => {})();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -5
+    , StringInsertsRight "\n  "
+    , StringInserts "\n    "
+    , StringInsert "var bar = [...];"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n    "
+    , StringInsert "(() => {})();"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -5
+    , StringInsertsRight "\n    "
+    , StringInserts "\n      "
+    , StringInsert "items.add({});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringInserts "\n      "
+    , StringInsert "items.push(() => {});"
+    ])
+
+  , Edits (createCharEdits
+    [ StringMoveBy -3
+    , StringInsertsRight "\n      "
+    , StringInserts "\n        "
+    , StringInsert "// ......"
+    ])
 
 
   , slide "" """
 # Weak References
 
-ES6 introduced `WeakMap` and `WeakSet` data structures which *weakly reference* their contents.
+ES2015 introduced `WeakMap` and `WeakSet` data structures which *weakly reference* their contents.
 """
 
 
@@ -292,3 +374,27 @@ getSlide_ idx slides =
       else getSlide_ (idx - 1) rest
     [] ->
       Nothing
+
+createCharEdits : List StringEdit -> List CharEdit
+createCharEdits stringEdits =
+  stringEdits
+    |> List.map (\strEdit -> createCharEditsSingle strEdit [])
+    |> List.concat
+
+createCharEditsSingle : StringEdit -> List CharEdit -> List CharEdit
+createCharEditsSingle strEdit results =
+  case strEdit of
+    StringHome -> [CharHome]
+    StringEnd -> [CharEnd]
+    StringMoveBy amount -> [CharMoveBy amount]
+    StringSeek str -> [CharSeek str]
+    StringSeekRight str -> [CharSeekRight str]
+    StringInserts str -> [CharInserts (String.toList str)]
+    StringInsertsRight str -> [CharInsertsRight (List.reverse (String.toList str))]
+    StringInsert str ->
+      String.toList str
+        |> List.map (\ch -> CharInsert ch)
+    StringInsertRight str ->
+      String.toList str
+        |> List.reverse
+        |> List.map (\ch -> CharInsertRight ch)
